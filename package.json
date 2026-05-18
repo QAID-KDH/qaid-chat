@@ -1,0 +1,16 @@
+{
+  "name": "apple-service-chat",
+  "version": "1.0.0",
+  "description": "Apple 서비스센터 수리실-응대실 실시간 채팅 시스템",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
+}
