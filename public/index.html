@@ -582,7 +582,7 @@
       <div class="login-logo">
         <img src="/images/qaid-logo.jpeg" alt="Qaid" />
       </div>
-      <p class="login-subtitle" style="text-align: center; margin-bottom: 32px;">센터, 이름, 부서를 선택해주세요</p>
+      <p class="login-subtitle" style="text-align: center; margin-bottom: 32px;">센터, 이름, 업무 위치를 선택해주세요</p>
 
       <div class="form-group">
         <label class="form-label">센터</label>
@@ -597,7 +597,7 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">부서</label>
+        <label class="form-label">업무 위치</label>
         <div class="role-buttons">
           <button type="button" class="role-btn repair" data-role="repair">
             <span class="icon">🔧</span>
@@ -605,18 +605,18 @@
           </button>
           <button type="button" class="role-btn service" data-role="service">
             <span class="icon">💬</span>
-            <span>응대실</span>
+            <span>고객대기실</span>
           </button>
         </div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">인증번호</label>
+        <label class="form-label">비밀번호</label>
         <input
           type="password"
           class="form-input"
           id="passwordInput"
-          placeholder="센터 인증번호를 입력하세요"
+          placeholder="센터 비밀번호를 입력하세요"
           inputmode="numeric"
           autocomplete="off"
         />
@@ -954,7 +954,7 @@
         div.innerHTML = `
           <span class="user-dot ${user.role}"></span>
           <span class="user-name">${escapeHtml(user.name)}</span>
-          <span class="user-role">${user.role === 'repair' ? '수리실' : '응대실'}</span>
+          <span class="user-role">${user.role === 'repair' ? '수리실' : '고객대기실'}</span>
         `;
         list.appendChild(div);
       });
@@ -976,7 +976,7 @@
         div.className = `message ${isOwn ? 'own' : 'other'}`;
         if (msg.id) div.dataset.messageId = msg.id;
         const roleIcon = msg.role === 'repair' ? '🔧' : '💬';
-        const roleLabel = msg.role === 'repair' ? '수리실' : '응대실';
+        const roleLabel = msg.role === 'repair' ? '수리실' : '고객대기실';
 
         let html = `
           <div class="message-meta">
