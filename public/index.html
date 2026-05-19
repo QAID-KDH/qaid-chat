@@ -4,144 +4,190 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Qaid 채팅</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/[email protected]/dist/web/variable/pretendardvariable-dynamic-subset.css" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0a0a0c;
-      --surface: #15151a;
-      --surface-2: #1c1c23;
-      --border: #2a2a35;
-      --text: #f5f5f7;
-      --text-dim: #8e8e93;
-      --accent: #007aff;
-      --repair: #ff9500;
-      --service: #30d158;
-      --danger: #ff453a;
+      /* 큐에이드 브랜드 컬러 */
+      --brand: #327CDB;
+      --brand-hover: #2569C4;
+      --brand-light: #E8F2FC;
+      --brand-50: #F4F9FE;
+
+      /* 라이트 모드 색상 */
+      --bg: #FAFBFC;
+      --surface: #FFFFFF;
+      --surface-2: #F4F6F9;
+      --border: #E5E8EC;
+      --border-strong: #D5D9E0;
+      --text: #1A1D24;
+      --text-secondary: #4B5563;
+      --text-dim: #9098A4;
+
+      /* 부서 색상 */
+      --repair: #E07B00;
+      --repair-bg: #FFF6E6;
+      --service: #1F9D55;
+      --service-bg: #E8F5EE;
+      --danger: #E11D48;
+      --danger-bg: #FEF1F2;
+
+      /* 그림자 */
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+      --shadow-lg: 0 12px 40px rgba(50, 124, 219, 0.12);
     }
 
     body {
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
       height: 100vh;
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      letter-spacing: -0.01em;
     }
 
-    /* 로그인 화면 */
+    /* ============ 로그인 화면 ============ */
     .login-screen {
       position: fixed;
       inset: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: radial-gradient(circle at 30% 20%, rgba(0, 122, 255, 0.15), transparent 50%),
-                  radial-gradient(circle at 70% 80%, rgba(255, 149, 0, 0.1), transparent 50%),
-                  var(--bg);
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 0%, rgba(50, 124, 219, 0.08), transparent 60%),
+        radial-gradient(ellipse 80% 60% at 80% 100%, rgba(50, 124, 219, 0.06), transparent 60%),
+        var(--bg);
       z-index: 100;
+      padding: 20px;
     }
 
     .login-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 48px 40px;
-      width: 90%;
+      border-radius: 16px;
+      padding: 44px 40px 36px;
+      width: 100%;
       max-width: 420px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      box-shadow: var(--shadow-lg);
     }
 
     .login-logo {
       display: flex;
       justify-content: center;
-      margin-bottom: 20px;
+      margin-bottom: 12px;
     }
 
     .login-logo img {
-      max-width: 200px;
+      max-width: 180px;
       height: auto;
-      background: white;
-      padding: 12px 16px;
-      border-radius: 12px;
-    }
-
-    .sidebar-logo {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: white;
-      padding: 8px 12px;
-      border-radius: 8px;
-      margin-bottom: 6px;
-    }
-
-    .sidebar-logo img {
-      max-width: 120px;
-      height: auto;
-      display: block;
-    }
-
-    .login-title {
-      font-size: 28px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      letter-spacing: -0.02em;
     }
 
     .login-subtitle {
-      color: var(--text-dim);
+      text-align: center;
+      color: var(--text-secondary);
       font-size: 14px;
       margin-bottom: 32px;
+      font-weight: 400;
     }
 
-    .form-group { margin-bottom: 20px; }
+    .form-group { margin-bottom: 18px; }
 
     .form-label {
       display: block;
       font-size: 13px;
-      font-weight: 500;
-      color: var(--text-dim);
+      font-weight: 600;
+      color: var(--text);
       margin-bottom: 8px;
+      letter-spacing: -0.01em;
     }
 
     .form-input {
       width: 100%;
-      padding: 14px 16px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 12px;
+      padding: 13px 14px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
       color: var(--text);
-      font-size: 15px;
+      font-size: 14px;
       font-family: inherit;
-      transition: border-color 0.2s;
+      font-weight: 500;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .form-input::placeholder {
+      color: var(--text-dim);
+      font-weight: 400;
     }
 
     .form-input:focus {
       outline: none;
-      border-color: var(--accent);
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(50, 124, 219, 0.12);
     }
 
-    /* select 드롭다운 스타일 */
+    /* select 드롭다운 */
     select.form-input {
       appearance: none;
       -webkit-appearance: none;
-      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3e%3cpath fill='%238e8e93' d='M6 8L0 0h12z'/%3e%3c/svg%3e");
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3e%3cpath fill='%239098A4' d='M6 8L0 0h12z'/%3e%3c/svg%3e");
       background-repeat: no-repeat;
-      background-position: right 16px center;
-      padding-right: 40px;
+      background-position: right 14px center;
+      padding-right: 36px;
       cursor: pointer;
     }
 
     select.form-input option {
-      background: var(--surface-2);
+      background: var(--surface);
       color: var(--text);
     }
 
-    /* 에러 메시지 */
+    .role-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .role-btn {
+      padding: 14px 12px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .role-btn .icon { font-size: 22px; }
+
+    .role-btn:hover {
+      border-color: var(--brand);
+      background: var(--brand-50);
+    }
+
+    .role-btn.active.repair {
+      border-color: var(--repair);
+      background: var(--repair-bg);
+      color: var(--repair);
+    }
+
+    .role-btn.active.service {
+      border-color: var(--service);
+      background: var(--service-bg);
+      color: var(--service);
+    }
+
     .error-message {
       color: var(--danger);
       font-size: 13px;
@@ -150,70 +196,38 @@
       font-weight: 500;
     }
 
-    .error-message.success {
-      color: var(--service);
-    }
-
-    .role-buttons {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .role-btn {
-      padding: 16px 12px;
-      background: var(--surface-2);
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      color: var(--text);
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.2s;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .role-btn .icon { font-size: 24px; }
-
-    .role-btn:hover { border-color: var(--accent); }
-
-    .role-btn.active.repair {
-      border-color: var(--repair);
-      background: rgba(255, 149, 0, 0.1);
-    }
-
-    .role-btn.active.service {
-      border-color: var(--service);
-      background: rgba(48, 209, 88, 0.1);
-    }
+    .error-message.success { color: var(--service); }
 
     .submit-btn {
       width: 100%;
       padding: 14px;
-      background: var(--accent);
+      background: var(--brand);
       color: white;
       border: none;
-      border-radius: 12px;
+      border-radius: 10px;
       font-size: 15px;
       font-weight: 600;
       cursor: pointer;
       font-family: inherit;
       margin-top: 8px;
-      transition: opacity 0.2s;
+      transition: background 0.15s ease, transform 0.05s ease;
+      letter-spacing: -0.01em;
     }
 
-    .submit-btn:hover { opacity: 0.9; }
-    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .submit-btn:hover:not(:disabled) { background: var(--brand-hover); }
+    .submit-btn:active:not(:disabled) { transform: translateY(1px); }
+    .submit-btn:disabled {
+      background: var(--border-strong);
+      color: var(--text-dim);
+      cursor: not-allowed;
+    }
 
-    /* 채팅 화면 */
+    /* ============ 채팅 화면 ============ */
     .chat-screen {
       display: none;
       height: 100vh;
       grid-template-columns: 260px 1fr;
+      background: var(--bg);
     }
 
     .chat-screen.active { display: grid; }
@@ -227,34 +241,42 @@
     }
 
     .sidebar-header {
-      padding: 20px;
+      padding: 20px 20px 16px;
       border-bottom: 1px solid var(--border);
     }
 
-    .sidebar-title {
-      font-size: 16px;
-      font-weight: 700;
-      margin-bottom: 4px;
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .sidebar-logo img {
+      max-width: 110px;
+      height: auto;
+      display: block;
     }
 
     .sidebar-subtitle {
       font-size: 12px;
-      color: var(--text-dim);
+      color: var(--text-secondary);
+      font-weight: 500;
+      margin-top: 6px;
     }
 
     .user-section {
-      padding: 16px 20px;
+      padding: 18px 20px;
       flex: 1;
       overflow-y: auto;
     }
 
     .user-section-title {
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--text-dim);
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 12px;
+      letter-spacing: 0.06em;
+      margin-bottom: 14px;
     }
 
     .user-item {
@@ -262,7 +284,7 @@
       align-items: center;
       gap: 10px;
       padding: 8px 0;
-      font-size: 14px;
+      font-size: 13px;
     }
 
     .user-dot {
@@ -275,8 +297,8 @@
     .user-dot.repair { background: var(--repair); }
     .user-dot.service { background: var(--service); }
 
-    .user-name { font-weight: 500; }
-    .user-role { font-size: 11px; color: var(--text-dim); margin-left: auto; }
+    .user-name { font-weight: 600; color: var(--text); }
+    .user-role { font-size: 11px; color: var(--text-dim); margin-left: auto; font-weight: 500; }
 
     .main {
       display: flex;
@@ -286,7 +308,7 @@
     }
 
     .chat-header {
-      padding: 16px 24px;
+      padding: 14px 24px;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
@@ -297,14 +319,40 @@
     .chat-header-title {
       font-size: 16px;
       font-weight: 700;
+      letter-spacing: -0.015em;
     }
+
+    .voice-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+
+    .voice-toggle:hover {
+      border-color: var(--brand);
+      color: var(--brand);
+    }
+
+    .voice-toggle.off { opacity: 0.6; }
+    .voice-toggle.off #voiceIcon::before { content: '🔇'; }
 
     .connection-status {
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 12px;
-      color: var(--text-dim);
+      color: var(--text-secondary);
+      font-weight: 500;
     }
 
     .status-dot {
@@ -322,7 +370,7 @@
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+      50% { opacity: 0.4; }
     }
 
     .messages {
@@ -331,23 +379,27 @@
       padding: 24px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 14px;
       background: var(--bg);
     }
 
     .messages::-webkit-scrollbar { width: 8px; }
     .messages::-webkit-scrollbar-track { background: transparent; }
-    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .messages::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 4px;
+    }
+    .messages::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
 
     .message {
       display: flex;
       flex-direction: column;
       max-width: 70%;
-      animation: slideIn 0.25s ease-out;
+      animation: slideIn 0.2s ease-out;
     }
 
     @keyframes slideIn {
-      from { opacity: 0; transform: translateY(8px); }
+      from { opacity: 0; transform: translateY(6px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
@@ -360,25 +412,27 @@
       gap: 8px;
       font-size: 12px;
       color: var(--text-dim);
-      margin-bottom: 4px;
+      margin-bottom: 5px;
       padding: 0 4px;
+      font-weight: 500;
     }
 
-    .message-name { font-weight: 600; }
+    .message-name { font-weight: 700; }
     .message-name.repair { color: var(--repair); }
     .message-name.service { color: var(--service); }
 
     .message-bubble {
-      padding: 12px 16px;
-      border-radius: 18px;
+      padding: 11px 15px;
+      border-radius: 14px;
       font-size: 14px;
-      line-height: 1.5;
+      line-height: 1.55;
       word-wrap: break-word;
       white-space: pre-wrap;
+      font-weight: 500;
     }
 
     .message.own .message-bubble {
-      background: var(--accent);
+      background: var(--brand);
       color: white;
       border-bottom-right-radius: 4px;
     }
@@ -386,7 +440,9 @@
     .message.other .message-bubble {
       background: var(--surface);
       border: 1px solid var(--border);
+      color: var(--text);
       border-bottom-left-radius: 4px;
+      box-shadow: var(--shadow-sm);
     }
 
     .message.system {
@@ -396,125 +452,41 @@
 
     .message.system .message-bubble {
       background: transparent;
-      color: var(--text-dim);
+      color: var(--text-secondary);
       font-size: 12px;
       padding: 4px 12px;
       border: 1px solid var(--border);
       border-radius: 12px;
-    }
-
-    .typing-indicator {
-      padding: 8px 24px;
-      font-size: 12px;
-      color: var(--text-dim);
-      font-style: italic;
-      min-height: 28px;
-    }
-
-    .input-area {
-      padding: 16px 24px 24px;
-      border-top: 1px solid var(--border);
-      background: var(--surface);
-    }
-
-    .input-wrapper {
-      display: flex;
-      gap: 12px;
-      align-items: flex-end;
-    }
-
-    .message-input {
-      flex: 1;
-      min-height: 44px;
-      max-height: 120px;
-      padding: 12px 16px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 22px;
-      color: var(--text);
-      font-size: 14px;
-      font-family: inherit;
-      resize: none;
-      line-height: 1.4;
-    }
-
-    .message-input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .send-btn {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: var(--accent);
-      border: none;
-      color: white;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: opacity 0.2s, transform 0.1s;
-    }
-
-    .send-btn:hover { opacity: 0.9; }
-    .send-btn:active { transform: scale(0.95); }
-    .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-    .voice-toggle {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      color: var(--text);
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 12px;
       font-weight: 500;
-      transition: all 0.2s;
+      box-shadow: none;
     }
 
-    .voice-toggle:hover {
-      border-color: var(--accent);
-    }
-
-    .voice-toggle.off {
-      opacity: 0.5;
-    }
-
-    .voice-toggle.off #voiceIcon::before {
-      content: '🔇';
-    }
-
-    /* 확인 체크박스 컨테이너 */
+    /* 확인 체크박스 (수리실에서만 표시) */
     .ack-container {
       display: inline-flex;
       align-items: center;
       gap: 8px;
       margin-top: 6px;
-      padding: 6px 12px;
-      background: rgba(255, 149, 0, 0.12);
-      border: 1px solid rgba(255, 149, 0, 0.4);
-      border-radius: 14px;
+      padding: 7px 12px;
+      background: var(--repair-bg);
+      border: 1px solid var(--repair);
+      border-radius: 12px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s ease;
       font-size: 12px;
+      font-weight: 600;
       user-select: none;
       animation: pulseAlert 1.5s ease-in-out infinite;
     }
 
     .ack-container:hover {
-      background: rgba(255, 149, 0, 0.2);
+      background: #FFE7BF;
       transform: translateY(-1px);
     }
 
     @keyframes pulseAlert {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 149, 0, 0.4); }
-      50% { box-shadow: 0 0 0 6px rgba(255, 149, 0, 0); }
+      0%, 100% { box-shadow: 0 0 0 0 rgba(224, 123, 0, 0.35); }
+      50% { box-shadow: 0 0 0 6px rgba(224, 123, 0, 0); }
     }
 
     .ack-checkbox {
@@ -524,17 +496,18 @@
       border-radius: 4px;
       flex-shrink: 0;
       position: relative;
-      transition: all 0.2s;
+      transition: all 0.15s ease;
+      background: white;
     }
 
     .ack-label {
       color: var(--repair);
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .ack-container.acknowledged {
-      background: rgba(48, 209, 88, 0.12);
-      border-color: rgba(48, 209, 88, 0.4);
+      background: var(--service-bg);
+      border-color: var(--service);
       cursor: default;
       animation: none;
     }
@@ -565,6 +538,80 @@
       padding: 0 4px;
       font-size: 11px;
       color: var(--text-dim);
+      font-weight: 500;
+    }
+
+    .typing-indicator {
+      padding: 8px 24px;
+      font-size: 12px;
+      color: var(--text-dim);
+      font-style: italic;
+      min-height: 28px;
+      background: var(--bg);
+    }
+
+    .input-area {
+      padding: 16px 24px 22px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .input-wrapper {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .message-input {
+      flex: 1;
+      min-height: 44px;
+      max-height: 120px;
+      padding: 12px 16px;
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      border-radius: 22px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      font-weight: 500;
+      resize: none;
+      line-height: 1.4;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .message-input::placeholder {
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    .message-input:focus {
+      outline: none;
+      border-color: var(--brand);
+      background: var(--surface);
+    }
+
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--brand);
+      border: none;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s ease, transform 0.05s ease;
+      box-shadow: 0 2px 8px rgba(50, 124, 219, 0.3);
+    }
+
+    .send-btn:hover:not(:disabled) { background: var(--brand-hover); }
+    .send-btn:active:not(:disabled) { transform: scale(0.95); }
+    .send-btn:disabled {
+      background: var(--border-strong);
+      box-shadow: none;
+      cursor: not-allowed;
     }
 
     @media (max-width: 768px) {
@@ -582,7 +629,7 @@
       <div class="login-logo">
         <img src="/images/qaid-logo.jpeg" alt="Qaid" />
       </div>
-      <p class="login-subtitle" style="text-align: center; margin-bottom: 32px;">센터, 이름, 업무 위치를 선택해주세요</p>
+      <p class="login-subtitle">센터, 이름, 업무 위치를 선택해주세요</p>
 
       <div class="form-group">
         <label class="form-label">센터</label>
