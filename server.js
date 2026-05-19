@@ -1,4 +1,4 @@
-// Apple 서비스센터 실시간 채팅 서버 (멀티 센터 지원)
+// Apple 서비스센터 실시간 채팅 서버 (멀티 센터 지원 + 비밀번호 인증)
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -13,6 +13,9 @@ const io = new Server(server, {
   }
 });
 
+// JSON 파싱 미들웨어
+app.use(express.json());
+
 // 정적 파일 제공
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -26,9 +29,120 @@ const CENTERS = [
   '예비 1', '예비 2', '예비 3'
 ];
 
-// 센터 목록 제공 API (클라이언트에서 불러감)
+// 센터별 비밀번호 (환경변수에서 로드)
+// 환경변수 CENTER_CODES_JSON 형식: {"강릉":"700351","강서":"700305",...}
+let CENTER_CODES = {};
+try {
+  if (process.env.CENTER_CODES_JSON) {
+    CENTER_CODES = JSON.parse(process.env.CENTER_CODES_JSON);
+    console.log(`🔒 비밀번호 로드 완료: ${Object.keys(CENTER_CODES).length}개 센터`);
+  } else {
+    console.warn('⚠️  CENTER_CODES_JSON 환경변수가 없습니다. 모든 로그인이 차단됩니다.');
+  }
+} catch (err) {
+  console.error('❌ CENTER_CODES_JSON 파싱 실패:', err.message);
+}
+
+// Rate Limit: IP별 실패 횟수 추적 (3회 실패 시 1분 차단)
+const MAX_ATTEMPTS = 3;
+const LOCKOUT_DURATION = 60 * 1000; // 1분 (밀리초)
+const loginAttempts = new Map(); // IP -> { count, lockedUntil }
+
+function getClientIP(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0].trim() ||
+         req.socket.remoteAddress ||
+         'unknown';
+}
+
+function isLocked(ip) {
+  const record = loginAttempts.get(ip);
+  if (!record) return false;
+  if (record.lockedUntil && Date.now() < record.lockedUntil) {
+    return Math.ceil((record.lockedUntil - Date.now()) / 1000);
+  }
+  // 차단 시간 지났으면 기록 삭제
+  if (record.lockedUntil && Date.now() >= record.lockedUntil) {
+    loginAttempts.delete(ip);
+  }
+  return false;
+}
+
+function recordFailedAttempt(ip) {
+  const record = loginAttempts.get(ip) || { count: 0, lockedUntil: null };
+  record.count++;
+  if (record.count >= MAX_ATTEMPTS) {
+    record.lockedUntil = Date.now() + LOCKOUT_DURATION;
+    console.log(`🚫 IP ${ip} 차단됨 (${MAX_ATTEMPTS}회 실패) - ${LOCKOUT_DURATION/1000}초간`);
+  }
+  loginAttempts.set(ip, record);
+}
+
+function recordSuccessfulAttempt(ip) {
+  loginAttempts.delete(ip); // 성공 시 기록 초기화
+}
+
+// 센터 목록 제공 API
 app.get('/api/centers', (req, res) => {
   res.json(CENTERS);
+});
+
+// 비밀번호 검증 API
+app.post('/api/verify', (req, res) => {
+  const ip = getClientIP(req);
+
+  // 차단 여부 확인
+  const lockSecondsLeft = isLocked(ip);
+  if (lockSecondsLeft) {
+    return res.status(429).json({
+      success: false,
+      locked: true,
+      secondsLeft: lockSecondsLeft,
+      message: `너무 많이 시도했습니다. ${lockSecondsLeft}초 후 다시 시도해주세요.`
+    });
+  }
+
+  const { center, password } = req.body;
+
+  // 입력값 검증
+  if (!center || !password) {
+    return res.status(400).json({
+      success: false,
+      message: '센터와 비밀번호를 모두 입력해주세요.'
+    });
+  }
+
+  if (!CENTERS.includes(center)) {
+    return res.status(400).json({
+      success: false,
+      message: '유효하지 않은 센터입니다.'
+    });
+  }
+
+  // 비밀번호 일치 확인
+  const expectedCode = CENTER_CODES[center];
+  if (!expectedCode) {
+    return res.status(500).json({
+      success: false,
+      message: '센터 비밀번호가 설정되지 않았습니다. 관리자에게 문의하세요.'
+    });
+  }
+
+  if (String(password) !== String(expectedCode)) {
+    recordFailedAttempt(ip);
+    const record = loginAttempts.get(ip);
+    const attemptsLeft = MAX_ATTEMPTS - record.count;
+    return res.status(401).json({
+      success: false,
+      message: attemptsLeft > 0
+        ? `비밀번호가 올바르지 않습니다. (남은 시도: ${attemptsLeft}회)`
+        : `${MAX_ATTEMPTS}회 실패. 1분간 로그인이 차단됩니다.`,
+      attemptsLeft: Math.max(0, attemptsLeft)
+    });
+  }
+
+  // 성공
+  recordSuccessfulAttempt(ip);
+  res.json({ success: true });
 });
 
 const MAX_HISTORY = 100;
@@ -62,10 +176,18 @@ io.on('connection', (socket) => {
   console.log(`접속: ${socket.id}`);
 
   // 사용자 입장
-  socket.on('join', ({ name, role, center }) => {
+  socket.on('join', ({ name, role, center, password }) => {
     // 유효한 센터인지 검증
     if (!CENTERS.includes(center)) {
       socket.emit('error', '유효하지 않은 센터입니다.');
+      return;
+    }
+
+    // 비밀번호 재검증 (Socket 연결 시점에도 확인)
+    const expectedCode = CENTER_CODES[center];
+    if (!expectedCode || String(password) !== String(expectedCode)) {
+      socket.emit('error', '인증 실패');
+      socket.disconnect();
       return;
     }
 
