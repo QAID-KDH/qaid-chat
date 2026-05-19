@@ -141,6 +141,19 @@
       color: var(--text);
     }
 
+    /* 에러 메시지 */
+    .error-message {
+      color: var(--danger);
+      font-size: 13px;
+      margin-top: 8px;
+      min-height: 18px;
+      font-weight: 500;
+    }
+
+    .error-message.success {
+      color: var(--service);
+    }
+
     .role-buttons {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -597,6 +610,19 @@
         </div>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">인증번호</label>
+        <input
+          type="password"
+          class="form-input"
+          id="passwordInput"
+          placeholder="센터 인증번호를 입력하세요"
+          inputmode="numeric"
+          autocomplete="off"
+        />
+        <div class="error-message" id="errorMessage"></div>
+      </div>
+
       <button class="submit-btn" id="joinBtn" disabled>입장하기</button>
     </div>
   </div>
@@ -660,6 +686,7 @@
     let myName = '';
     let myRole = '';
     let myCenter = '';
+    let myPassword = '';
     let selectedRole = '';
     let typingTimer = null;
 
@@ -685,6 +712,8 @@
     // 로그인 화면 핸들러
     const nameInput = document.getElementById('nameInput');
     const centerSelect = document.getElementById('centerSelect');
+    const passwordInput = document.getElementById('passwordInput');
+    const errorMessage = document.getElementById('errorMessage');
     const joinBtn = document.getElementById('joinBtn');
     const roleButtons = document.querySelectorAll('.role-btn');
 
@@ -699,12 +728,17 @@
 
     nameInput.addEventListener('input', validateForm);
     centerSelect.addEventListener('change', validateForm);
+    passwordInput.addEventListener('input', () => {
+      validateForm();
+      errorMessage.textContent = ''; // 입력 시작하면 에러 메시지 제거
+    });
 
     function validateForm() {
       joinBtn.disabled = !(
         nameInput.value.trim() &&
         selectedRole &&
-        centerSelect.value
+        centerSelect.value &&
+        passwordInput.value.trim()
       );
     }
 
@@ -712,28 +746,99 @@
     nameInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter' && !joinBtn.disabled) joinChat();
     });
+    passwordInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !joinBtn.disabled) joinChat();
+    });
 
-    function joinChat() {
-      myName = nameInput.value.trim();
-      myRole = selectedRole;
-      myCenter = centerSelect.value;
-      if (!myName || !myRole || !myCenter) return;
+    async function joinChat() {
+      const inputName = nameInput.value.trim();
+      const inputRole = selectedRole;
+      const inputCenter = centerSelect.value;
+      const inputPassword = passwordInput.value.trim();
 
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('chatScreen').classList.add('active');
+      if (!inputName || !inputRole || !inputCenter || !inputPassword) return;
 
-      // 센터명 표시
-      document.getElementById('currentCenter').textContent = `📍 ${myCenter}`;
-      document.getElementById('chatHeaderTitle').textContent = `${myCenter} 채팅방`;
-      document.title = `Qaid · ${myCenter}`;
+      // 버튼 비활성화 + 로딩 표시
+      joinBtn.disabled = true;
+      joinBtn.textContent = '인증 중...';
+      errorMessage.textContent = '';
+      errorMessage.classList.remove('success');
 
-      // 음성 토글 버튼: 수리실만 표시
-      const vt = document.getElementById('voiceToggle');
-      if (vt) {
-        vt.style.display = (myRole === 'repair') ? 'flex' : 'none';
+      try {
+        // 서버에 비밀번호 검증 요청
+        const res = await fetch('/api/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            center: inputCenter,
+            password: inputPassword
+          })
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+          errorMessage.textContent = data.message || '인증 실패';
+          joinBtn.disabled = false;
+          joinBtn.textContent = '입장하기';
+
+          // 차단된 경우 카운트다운 표시
+          if (data.locked && data.secondsLeft) {
+            startLockoutCountdown(data.secondsLeft);
+          }
+          return;
+        }
+
+        // 인증 성공 → 채팅방 입장
+        myName = inputName;
+        myRole = inputRole;
+        myCenter = inputCenter;
+        myPassword = inputPassword;
+
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('chatScreen').classList.add('active');
+
+        // 센터명 표시
+        document.getElementById('currentCenter').textContent = `📍 ${myCenter}`;
+        document.getElementById('chatHeaderTitle').textContent = `${myCenter} 채팅방`;
+        document.title = `Qaid · ${myCenter}`;
+
+        // 음성 토글 버튼: 수리실만 표시
+        const vt = document.getElementById('voiceToggle');
+        if (vt) {
+          vt.style.display = (myRole === 'repair') ? 'flex' : 'none';
+        }
+
+        connectSocket();
+      } catch (err) {
+        console.error('인증 요청 실패:', err);
+        errorMessage.textContent = '서버 연결 실패. 잠시 후 다시 시도해주세요.';
+        joinBtn.disabled = false;
+        joinBtn.textContent = '입장하기';
       }
+    }
 
-      connectSocket();
+    // 차단 시 카운트다운 표시
+    let lockoutInterval = null;
+    function startLockoutCountdown(seconds) {
+      joinBtn.disabled = true;
+      clearInterval(lockoutInterval);
+
+      const updateMessage = () => {
+        if (seconds <= 0) {
+          clearInterval(lockoutInterval);
+          errorMessage.textContent = '다시 시도하실 수 있습니다.';
+          joinBtn.disabled = false;
+          joinBtn.textContent = '입장하기';
+          validateForm();
+          return;
+        }
+        errorMessage.textContent = `차단됨. ${seconds}초 후 다시 시도해주세요.`;
+        seconds--;
+      };
+
+      updateMessage();
+      lockoutInterval = setInterval(updateMessage, 1000);
     }
 
     function connectSocket() {
@@ -741,7 +846,12 @@
 
       socket.on('connect', () => {
         updateStatus(true);
-        socket.emit('join', { name: myName, role: myRole, center: myCenter });
+        socket.emit('join', {
+          name: myName,
+          role: myRole,
+          center: myCenter,
+          password: myPassword
+        });
       });
 
       socket.on('disconnect', () => updateStatus(false));
