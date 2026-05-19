@@ -681,70 +681,9 @@
       cursor: not-allowed;
     }
 
-    /* 음성 컨트롤 묶음 */
-    .voice-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* 음량 슬라이더 */
-    .volume-slider-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 7px 12px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .volume-slider {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 80px;
-      height: 4px;
-      background: var(--border-strong);
-      border-radius: 2px;
-      outline: none;
-      cursor: pointer;
-    }
-
-    .volume-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 14px;
-      height: 14px;
-      background: var(--brand);
-      border-radius: 50%;
-      cursor: pointer;
-      border: 2px solid white;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    }
-
-    .volume-slider::-moz-range-thumb {
-      width: 14px;
-      height: 14px;
-      background: var(--brand);
-      border-radius: 50%;
-      cursor: pointer;
-      border: 2px solid white;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    }
-
-    .volume-value {
-      min-width: 36px;
-      text-align: right;
-      color: var(--brand);
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* 시각 알림 효과 - 메시지 영역 깜빡임 */
+    /* 시각 알림 효과 - 메시지 영역 깜빡임 (확인하기 클릭 전까지 지속) */
     .messages.alert-flash {
-      animation: alertFlash 0.6s ease-in-out 5;
+      animation: alertFlash 1.2s ease-in-out infinite;
     }
 
     @keyframes alertFlash {
@@ -762,7 +701,6 @@
       .chat-screen.active { grid-template-columns: 1fr; }
       .sidebar { display: none; }
       .message { max-width: 85%; }
-      .volume-slider-wrap { display: none; } /* 모바일에서는 슬라이더 숨김 (공간 부족) */
     }
   </style>
 </head>
@@ -838,17 +776,10 @@
       <header class="chat-header">
         <div class="chat-header-title" id="chatHeaderTitle">전체 채팅방</div>
         <div style="display: flex; align-items: center; gap: 12px;">
-          <div class="voice-controls" id="voiceControls">
-            <button id="voiceToggle" class="voice-toggle" title="음성 읽기 켜기/끄기">
-              <span id="voiceIcon">🔊</span>
-              <span id="voiceLabel">음성 ON</span>
-            </button>
-            <div class="volume-slider-wrap" id="volumeSliderWrap" title="음량 조절">
-              <span>🔉</span>
-              <input type="range" id="volumeSlider" class="volume-slider" min="50" max="250" step="10" value="200" />
-              <span class="volume-value" id="volumeValue">200%</span>
-            </div>
-          </div>
+          <button id="voiceToggle" class="voice-toggle" title="음성 읽기 켜기/끄기">
+            <span id="voiceIcon">🔊</span>
+            <span id="voiceLabel">음성 ON</span>
+          </button>
           <div class="connection-status">
             <span class="status-dot" id="statusDot"></span>
             <span id="statusText">연결됨</span>
@@ -1068,6 +999,8 @@
           if (unackedServiceMessages.length > 0) {
             const latest = unackedServiceMessages[unackedServiceMessages.length - 1];
             startRepeating(latest.id, latest.name, latest.text);
+            // 미확인 메시지가 있으면 시각 알림도 시작 (재접속 시에도 인지 가능)
+            startVisualAlert();
           }
         }
       });
@@ -1084,11 +1017,11 @@
           myRole === 'repair' &&            // 받는 사람이 수리실
           !(msg.name === myName && msg.role === myRole) // 본인 메시지 아님
         ) {
-          // 첫 알림: 비프음 + 시각 알림 + 음성 재생
+          // 첫 알림: 비프음 + 시각 알림 시작 + 음성 재생
           playBeep();
-          triggerVisualAlert();
+          startVisualAlert(); // 확인 전까지 계속 깜빡임
           speakMessage(msg.name, msg.text);
-          // 10초 반복 등록 (반복 시에는 비프음 없이 음성 + 시각 알림만)
+          // 10초 반복 등록 (반복 시에는 비프음 없이 음성만, 시각 알림은 이미 진행 중)
           startRepeating(msg.id, msg.name, msg.text);
         }
       });
@@ -1097,6 +1030,11 @@
       socket.on('acknowledged', ({ messageId, acknowledgedBy, acknowledgedAt }) => {
         // 1. 해당 메시지의 음성 반복 중단
         stopRepeating(messageId);
+
+        // 1-1. 시각 알림 중단 (수리실에서만 활성화된 상태였음)
+        if (myRole === 'repair') {
+          stopVisualAlert();
+        }
 
         // 2. UI 업데이트 - 체크박스 상태 변경
         const ackEl = document.querySelector(`.ack-container[data-ack-for="${messageId}"]`);
@@ -1130,8 +1068,12 @@
         // 1. 진행 중인 음성 반복 즉시 중단 (핵심 기능!)
         stopRepeating(messageId);
 
+        // 1-1. 시각 알림도 중단 (수리실에서만 활성화된 상태였음)
+        if (myRole === 'repair') {
+          stopVisualAlert();
+        }
+
         // 2. 현재 재생 중인 해당 메시지의 음성도 중단 (브라우저 큐에 있는 것 포함)
-        // 단순화를 위해 모든 음성 중단 (다른 메시지는 다시 반복되니까 곧 재개됨)
         if ('speechSynthesis' in window) {
           speechSynthesis.cancel();
         }
@@ -1337,28 +1279,11 @@
       }
     });
 
-    // ========== 음성 합성 (TTS) + 비프음 증폭 + 시각 알림 ==========
-    // 중요: Web Speech API의 음성 출력은 시스템 볼륨에 종속됨 (Web Audio로 직접 증폭 불가)
-    // 따라서 음량 슬라이더는 "비프음(알림음)" 증폭에 적용됨
+    // ========== 음성 합성 (TTS) + 비프음 + 시각 알림 ==========
     let voiceEnabled = true;
     let koreanVoice = null;
-    let beepVolumeMultiplier = 2.0; // 비프음 음량 배율 (1.0 = 100%, 2.5 = 250%)
     const voiceToggle = document.getElementById('voiceToggle');
     const voiceLabel = document.getElementById('voiceLabel');
-    const volumeSlider = document.getElementById('volumeSlider');
-    const volumeValue = document.getElementById('volumeValue');
-
-    // 저장된 음량 설정 불러오기
-    try {
-      const savedVolume = sessionStorage.getItem('qaid_beep_volume');
-      if (savedVolume) {
-        beepVolumeMultiplier = parseFloat(savedVolume);
-        if (volumeSlider) {
-          volumeSlider.value = Math.round(beepVolumeMultiplier * 100);
-          if (volumeValue) volumeValue.textContent = `${Math.round(beepVolumeMultiplier * 100)}%`;
-        }
-      }
-    } catch (e) {}
 
     // 사용 가능한 음성 목록 로드
     function loadVoices() {
@@ -1390,8 +1315,7 @@
       return audioContext;
     }
 
-    // 비프음 ("딩-동" 짧은 알림음) - 음량 증폭 적용
-    // 이 비프음은 슬라이더로 250%까지 증폭 가능
+    // 비프음 ("딩-동" 짧은 알림음) - 고정 음량 (깨짐 방지)
     function playBeep() {
       const ctx = getAudioContext();
       if (!ctx) return;
@@ -1406,13 +1330,12 @@
       compressor.attack.setValueAtTime(0.003, now);
       compressor.release.setValueAtTime(0.25, now);
 
-      // 게인 노드 - 음량 증폭 (슬라이더 값 반영)
+      // 게인 노드 - 고정 음량 (안전한 수준)
       const gainNode = ctx.createGain();
-      // 기본 게인 0.4 × 증폭 배율
-      const targetGain = 0.4 * beepVolumeMultiplier;
+      const fixedGain = 0.4; // 적정 수준 (깨지지 않는 음량)
       gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(targetGain, now + 0.02);
-      gainNode.gain.setValueAtTime(targetGain, now + 0.15);
+      gainNode.gain.linearRampToValueAtTime(fixedGain, now + 0.02);
+      gainNode.gain.setValueAtTime(fixedGain, now + 0.15);
       gainNode.gain.linearRampToValueAtTime(0, now + 0.35);
 
       // 첫 번째 음 ("딩") - 880Hz
@@ -1431,12 +1354,11 @@
       osc2.start(now + 0.15);
       osc2.stop(now + 0.35);
 
-      // 신호 흐름: oscillator → gain → compressor → speaker
       gainNode.connect(compressor);
       compressor.connect(ctx.destination);
     }
 
-    // 음성 재생 (브라우저 기본 TTS - 시스템 볼륨에 종속)
+    // 음성 재생 (브라우저 기본 TTS)
     function speakMessage(name, text) {
       if (!voiceEnabled || !('speechSynthesis' in window)) return;
 
@@ -1444,7 +1366,7 @@
       utterance.lang = 'ko-KR';
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
-      utterance.volume = 1.0; // 최대 (시스템 볼륨에 종속됨)
+      utterance.volume = 1.0;
 
       if (koreanVoice) {
         utterance.voice = koreanVoice;
@@ -1454,37 +1376,49 @@
     }
 
     // 시각 알림 - 메시지 영역 깜빡임 + 페이지 제목 변경
+    // 핵심: 확인하기 클릭(또는 메시지 삭제) 전까지 계속 깜빡임
     let titleFlashInterval = null;
     let originalTitle = '';
-    function triggerVisualAlert() {
-      // 1. 메시지 영역 깜빡임
+    let activeAlertCount = 0; // 활성 알림 개수 추적
+
+    function startVisualAlert() {
+      activeAlertCount++;
+
+      // 메시지 영역에 깜빡임 클래스 추가 (CSS animation infinite)
       const messagesEl = document.getElementById('messages');
       if (messagesEl) {
-        messagesEl.classList.remove('alert-flash');
-        void messagesEl.offsetWidth; // 강제 reflow
         messagesEl.classList.add('alert-flash');
-        setTimeout(() => {
-          messagesEl.classList.remove('alert-flash');
-        }, 3000);
       }
 
-      // 2. 페이지 제목 깜빡임 (3초간)
-      if (!originalTitle) originalTitle = document.title;
-      if (titleFlashInterval) clearInterval(titleFlashInterval);
+      // 페이지 제목 깜빡임 (이미 동작 중이면 중복 시작 방지)
+      if (!titleFlashInterval) {
+        if (!originalTitle) originalTitle = document.title;
+        let flashState = false;
+        titleFlashInterval = setInterval(() => {
+          flashState = !flashState;
+          document.title = flashState ? '🔔 새 메시지!' : originalTitle;
+        }, 800);
+      }
+    }
 
-      let flashState = false;
-      titleFlashInterval = setInterval(() => {
-        flashState = !flashState;
-        document.title = flashState ? '🔔 새 메시지!' : originalTitle;
-      }, 800);
+    function stopVisualAlert() {
+      if (activeAlertCount > 0) activeAlertCount--;
 
-      setTimeout(() => {
+      // 활성 알림이 모두 사라지면 시각 알림 중단
+      if (activeAlertCount === 0) {
+        const messagesEl = document.getElementById('messages');
+        if (messagesEl) {
+          messagesEl.classList.remove('alert-flash');
+        }
+
         if (titleFlashInterval) {
           clearInterval(titleFlashInterval);
           titleFlashInterval = null;
         }
-        document.title = originalTitle;
-      }, 3000);
+        if (originalTitle) {
+          document.title = originalTitle;
+        }
+      }
     }
 
     // 음성 ON/OFF 토글
@@ -1500,23 +1434,6 @@
         stopAllRepeating();
       }
     });
-
-    // 음량 슬라이더 이벤트 (비프음 음량 조절)
-    if (volumeSlider && volumeValue) {
-      volumeSlider.addEventListener('input', () => {
-        const pct = parseInt(volumeSlider.value);
-        beepVolumeMultiplier = pct / 100;
-        volumeValue.textContent = `${pct}%`;
-        try {
-          sessionStorage.setItem('qaid_beep_volume', beepVolumeMultiplier.toString());
-        } catch (e) {}
-      });
-
-      // 슬라이더 조작 후 손 떼면 미리듣기 비프음 재생
-      volumeSlider.addEventListener('change', () => {
-        playBeep();
-      });
-    }
 
     // ========== 메시지 확인 (Acknowledge) & 반복 알림 ==========
 
@@ -1548,12 +1465,10 @@
       if (repeatTimers.has(messageId)) return;
 
       const timerId = setInterval(() => {
-        // 반복 시에는 비프음 없이 음성 + 시각 알림
+        // 반복 시에는 음성만 재생 (시각 알림은 startVisualAlert로 이미 지속 중)
         if (voiceEnabled) {
           speakMessage(name, text);
         }
-        // 시각 알림은 음성 ON/OFF 상관없이 항상 동작 (시각 알림 자체가 보조 수단)
-        triggerVisualAlert();
       }, REPEAT_INTERVAL);
 
       repeatTimers.set(messageId, timerId);
