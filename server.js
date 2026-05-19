@@ -207,7 +207,7 @@ io.on('connection', (socket) => {
     // 같은 센터 사람들에게만 입장 알림
     const joinMessage = {
       type: 'system',
-      text: `${role === 'repair' ? '🔧 수리실' : '💬 응대실'} ${name}님이 입장했습니다.`,
+      text: `${role === 'repair' ? '🔧 수리실' : '💬 고객대기실'} ${name}님이 입장했습니다.`,
       timestamp: new Date().toISOString()
     };
     io.to(center).emit('message', joinMessage);
@@ -284,7 +284,7 @@ io.on('connection', (socket) => {
       if (user) {
         const leaveMessage = {
           type: 'system',
-          text: `${user.role === 'repair' ? '🔧 수리실' : '💬 응대실'} ${user.name}님이 퇴장했습니다.`,
+          text: `${user.role === 'repair' ? '🔧 수리실' : '💬 고객대기실'} ${user.name}님이 퇴장했습니다.`,
           timestamp: new Date().toISOString()
         };
         io.to(center).emit('message', leaveMessage);
