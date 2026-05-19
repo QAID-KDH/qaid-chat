@@ -429,6 +429,73 @@
       word-wrap: break-word;
       white-space: pre-wrap;
       font-weight: 500;
+      position: relative;
+    }
+
+    /* 메시지 호버 시 삭제 버튼 표시 */
+    .message.own {
+      position: relative;
+    }
+
+    .delete-btn {
+      position: absolute;
+      top: -6px;
+      left: -28px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.15s ease;
+      padding: 0;
+    }
+
+    .delete-btn:hover {
+      background: var(--danger-bg);
+      border-color: var(--danger);
+      color: var(--danger);
+      transform: scale(1.1);
+    }
+
+    /* 본인 메시지 호버 시 삭제 버튼 표시 (삭제된 메시지 제외) */
+    .message.own:hover .delete-btn {
+      display: flex;
+    }
+
+    /* 모바일에서는 항상 보이게 (호버 없으므로) */
+    @media (hover: none) {
+      .message.own .delete-btn {
+        display: flex;
+        opacity: 0.5;
+      }
+      .message.own .delete-btn:active {
+        opacity: 1;
+      }
+    }
+
+    /* 삭제된 메시지 스타일 */
+    .message.deleted .message-bubble {
+      background: var(--surface-2) !important;
+      color: var(--text-dim) !important;
+      font-style: italic;
+      font-weight: 400;
+      border: 1px dashed var(--border-strong) !important;
+      box-shadow: none !important;
+    }
+
+    .message.deleted .delete-btn {
+      display: none !important;
+    }
+
+    .message.deleted .ack-container {
+      display: none !important;
     }
 
     .message.own .message-bubble {
@@ -910,7 +977,7 @@
         // (단, 너무 많은 메시지가 동시에 울리지 않게 가장 최근 미확인 메시지만)
         if (myRole === 'repair') {
           const unackedServiceMessages = history.filter(
-            m => m.type === 'chat' && m.role === 'service' && !m.acknowledged && m.id
+            m => m.type === 'chat' && m.role === 'service' && !m.acknowledged && !m.deleted && m.id
           );
           // 가장 최근 미확인 메시지 1개에만 반복 알림 (스팸 방지)
           if (unackedServiceMessages.length > 0) {
@@ -924,9 +991,10 @@
         renderMessage(msg);
         scrollToBottom();
         // 음성 재생: 응대실(service)이 보낸 메시지를 수리실(repair)에서만 읽어줌
-        // 본인이 보낸 메시지는 읽지 않음
+        // 본인이 보낸 메시지는 읽지 않음, 삭제된 메시지도 읽지 않음
         if (
           msg.type === 'chat' &&
+          !msg.deleted &&                   // 삭제된 메시지 아님
           msg.role === 'service' &&         // 보낸 사람이 응대실
           myRole === 'repair' &&            // 받는 사람이 수리실
           !(msg.name === myName && msg.role === myRole) // 본인 메시지 아님
@@ -966,6 +1034,34 @@
             messageDiv.appendChild(infoEl);
           }
           infoEl.textContent = `✓ ${acknowledgedBy}님이 ${ackTime}에 확인`;
+        }
+      });
+
+      // 서버에서 메시지 삭제 알림 수신
+      socket.on('deleted', ({ messageId, deletedAt }) => {
+        // 1. 진행 중인 음성 반복 즉시 중단 (핵심 기능!)
+        stopRepeating(messageId);
+
+        // 2. 현재 재생 중인 해당 메시지의 음성도 중단 (브라우저 큐에 있는 것 포함)
+        // 단순화를 위해 모든 음성 중단 (다른 메시지는 다시 반복되니까 곧 재개됨)
+        if ('speechSynthesis' in window) {
+          speechSynthesis.cancel();
+        }
+
+        // 3. UI 업데이트 - 메시지를 삭제된 상태로 변경
+        const messageDiv = document.querySelector(`.message[data-message-id="${messageId}"]`);
+        if (messageDiv) {
+          messageDiv.classList.add('deleted');
+          const bubble = messageDiv.querySelector('.message-bubble');
+          if (bubble) bubble.textContent = '⊘ 삭제된 메시지입니다.';
+          // 확인 체크박스/정보 제거
+          const ackEl = messageDiv.querySelector('.ack-container');
+          if (ackEl) ackEl.remove();
+          const ackInfo = messageDiv.querySelector('.ack-info');
+          if (ackInfo) ackInfo.remove();
+          // 삭제 버튼 제거
+          const deleteBtn = messageDiv.querySelector('.delete-btn');
+          if (deleteBtn) deleteBtn.remove();
         }
       });
 
@@ -1020,7 +1116,8 @@
         div.innerHTML = `<div class="message-bubble">${escapeHtml(msg.text)}</div>`;
       } else {
         const isOwn = msg.name === myName && msg.role === myRole;
-        div.className = `message ${isOwn ? 'own' : 'other'}`;
+        const isDeleted = msg.deleted === true;
+        div.className = `message ${isOwn ? 'own' : 'other'}${isDeleted ? ' deleted' : ''}`;
         if (msg.id) div.dataset.messageId = msg.id;
         const roleIcon = msg.role === 'repair' ? '🔧' : '💬';
         const roleLabel = msg.role === 'repair' ? '수리실' : '고객대기실';
@@ -1033,8 +1130,15 @@
           <div class="message-bubble">${escapeHtml(msg.text)}</div>
         `;
 
-        // 응대실 메시지인데 내가 수리실이면 → 확인 체크박스 표시
-        if (msg.role === 'service' && myRole === 'repair') {
+        // 본인이 보낸 메시지 + 삭제 안 된 메시지면 → 삭제 버튼 추가
+        if (isOwn && !isDeleted && msg.id) {
+          html += `
+            <button class="delete-btn" data-delete-for="${msg.id}" title="삭제">✕</button>
+          `;
+        }
+
+        // 응대실 메시지인데 내가 수리실이면 → 확인 체크박스 표시 (삭제된 메시지는 제외)
+        if (!isDeleted && msg.role === 'service' && myRole === 'repair') {
           const isAcked = msg.acknowledged === true;
           html += `
             <div class="ack-container ${isAcked ? 'acknowledged' : ''}" data-ack-for="${msg.id}">
@@ -1049,15 +1153,15 @@
             html += `<div class="ack-info">${escapeHtml(msg.acknowledgedBy)}님이 ${ackTime}에 확인</div>`;
           }
         }
-        // 응대실 메시지에 대한 확인 정보를 응대실 사용자도 볼 수 있게
-        else if (msg.role === 'service' && myRole === 'service' && msg.acknowledged) {
+        // 응대실 메시지에 대한 확인 정보를 응대실 사용자도 볼 수 있게 (삭제된 메시지 제외)
+        else if (!isDeleted && msg.role === 'service' && myRole === 'service' && msg.acknowledged) {
           const ackTime = msg.acknowledgedAt
             ? new Date(msg.acknowledgedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
             : '';
           html += `<div class="ack-info" data-ack-info-for="${msg.id}">✓ ${escapeHtml(msg.acknowledgedBy)}님이 ${ackTime}에 확인</div>`;
         }
-        // 아직 확인 안 된 응대실 메시지를 응대실 본인도 추적할 수 있게 빈 컨테이너
-        else if (msg.role === 'service' && myRole === 'service' && !msg.acknowledged) {
+        // 아직 확인 안 된 응대실 메시지를 응대실 본인도 추적할 수 있게 빈 컨테이너 (삭제된 메시지 제외)
+        else if (!isDeleted && msg.role === 'service' && myRole === 'service' && !msg.acknowledged) {
           html += `<div class="ack-info" data-ack-info-for="${msg.id}">⏳ 수리실 확인 대기 중</div>`;
         }
 
@@ -1068,6 +1172,17 @@
         if (ackEl && !ackEl.classList.contains('acknowledged')) {
           ackEl.addEventListener('click', () => {
             acknowledgeMessage(msg.id);
+          });
+        }
+
+        // 삭제 버튼 클릭 이벤트
+        const deleteBtn = div.querySelector('.delete-btn');
+        if (deleteBtn) {
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm('이 메시지를 삭제하시겠습니까?\n\n삭제된 메시지는 모든 사용자에게 "⊘ 삭제된 메시지"로 표시됩니다.')) {
+              deleteMessage(msg.id);
+            }
           });
         }
       }
@@ -1204,6 +1319,13 @@
       socket.emit('acknowledge', messageId);
       // 즉시 로컬에서도 반복 중지 (서버 응답 기다리지 않음)
       stopRepeating(messageId);
+    }
+
+    // 메시지 삭제 → 서버에 삭제 요청 전송
+    function deleteMessage(messageId) {
+      if (!socket || !messageId) return;
+      socket.emit('delete', messageId);
+      // 서버 응답을 기다림 (서버에서 'deleted' 이벤트 받으면 UI 업데이트 + 음성 반복 중단)
     }
 
     // 특정 메시지에 대해 10초마다 음성 반복 시작
