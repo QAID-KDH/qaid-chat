@@ -264,6 +264,41 @@ io.on('connection', (socket) => {
     }
   });
 
+  // 메시지 삭제 처리 (본인 메시지만, 음성 반복도 함께 중단)
+  socket.on('delete', (messageId) => {
+    const center = socketCenter.get(socket.id);
+    if (!center) return;
+    const data = getCenterData(center);
+    const user = data.users.get(socket.id);
+    if (!user) return;
+    if (!messageId) return;
+
+    const msg = data.messageHistory.find(m => m.id === messageId);
+    if (!msg) return;
+
+    // 본인이 보낸 메시지인지 확인 (이름 + 부서 모두 일치)
+    if (msg.name !== user.name || msg.role !== user.role) {
+      socket.emit('error', '본인이 보낸 메시지만 삭제할 수 있습니다.');
+      return;
+    }
+
+    // 이미 삭제된 메시지인지 확인
+    if (msg.deleted) return;
+
+    // 메시지를 삭제 상태로 표시 (소프트 삭제)
+    msg.deleted = true;
+    msg.deletedAt = new Date().toISOString();
+    msg.originalText = msg.text; // 원본 보관 (감사용)
+    msg.text = '⊘ 삭제된 메시지입니다.';
+
+    // 같은 센터 사람들에게 삭제 상태 전파
+    // (수신측에서 이 ID에 대한 음성 반복도 중단해야 함)
+    io.to(center).emit('deleted', {
+      messageId: msg.id,
+      deletedAt: msg.deletedAt
+    });
+  });
+
   // 타이핑 표시
   socket.on('typing', (isTyping) => {
     const center = socketCenter.get(socket.id);
