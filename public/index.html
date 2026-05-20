@@ -1085,17 +1085,20 @@
 
       // 서버에서 메시지 삭제 알림 수신
       socket.on('deleted', ({ messageId, deletedAt }) => {
-        // 1. 진행 중인 음성 반복 즉시 중단 (핵심 기능!)
+        // 1. 진행 중인 음성 반복 즉시 중단 (모든 사용자)
         stopRepeating(messageId);
 
-        // 1-1. 시각 알림도 중단 (수리실에서만 활성화된 상태였음)
+        // 2. 수리실 사용자에게만 음성/시각 알림 중단 처리
+        // 고객대기실에서는 어차피 음성이 재생되지 않으므로,
+        // speechSynthesis.cancel()을 호출하면 불필요한 딜레이만 발생
         if (myRole === 'repair') {
+          // 시각 알림 중단
           stopVisualAlert();
-        }
 
-        // 2. 현재 재생 중인 해당 메시지의 음성도 중단 (브라우저 큐에 있는 것 포함)
-        if ('speechSynthesis' in window) {
-          speechSynthesis.cancel();
+          // 현재 재생 중인 음성도 중단 (수리실에서만)
+          if ('speechSynthesis' in window) {
+            speechSynthesis.cancel();
+          }
         }
 
         // 3. UI 업데이트 - 메시지를 삭제된 상태로 변경
