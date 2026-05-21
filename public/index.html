@@ -1493,8 +1493,10 @@
           `;
         }
 
-        // 응대실 메시지인데 내가 수리실이면 → 확인 체크박스 표시 (삭제된 메시지는 제외)
-        if (!isDeleted && msg.role === 'service' && myRole === 'repair') {
+        // 응대실 메시지인데 내가 수리실이면 → 확인 체크박스 표시
+        // 단, 음성 모드(withVoice=true)로 보낸 메시지에만 표시 (반복 알림 중단용)
+        // 텍스트 모드 메시지는 알림이 없으므로 체크박스 불필요
+        if (!isDeleted && msg.role === 'service' && myRole === 'repair' && msg.withVoice === true) {
           const isAcked = msg.acknowledged === true;
           html += `
             <div class="ack-container ${isAcked ? 'acknowledged' : ''}" data-ack-for="${msg.id}">
@@ -1509,15 +1511,15 @@
             html += `<div class="ack-info">${escapeHtml(msg.acknowledgedBy)}님이 ${ackTime}에 확인</div>`;
           }
         }
-        // 응대실 메시지에 대한 확인 정보를 응대실 사용자도 볼 수 있게 (삭제된 메시지 제외)
-        else if (!isDeleted && msg.role === 'service' && myRole === 'service' && msg.acknowledged) {
+        // 응대실 본인이 보낸 음성 모드 메시지의 확인 정보 (응대실 측에서도 확인 여부 추적)
+        else if (!isDeleted && msg.role === 'service' && myRole === 'service' && msg.withVoice === true && msg.acknowledged) {
           const ackTime = msg.acknowledgedAt
             ? new Date(msg.acknowledgedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
             : '';
           html += `<div class="ack-info" data-ack-info-for="${msg.id}">✓ ${escapeHtml(msg.acknowledgedBy)}님이 ${ackTime}에 확인</div>`;
         }
-        // 아직 확인 안 된 응대실 메시지를 응대실 본인도 추적할 수 있게 빈 컨테이너 (삭제된 메시지 제외)
-        else if (!isDeleted && msg.role === 'service' && myRole === 'service' && !msg.acknowledged) {
+        // 응대실 본인이 보낸 음성 모드 메시지가 아직 확인 안 됨
+        else if (!isDeleted && msg.role === 'service' && myRole === 'service' && msg.withVoice === true && !msg.acknowledged) {
           html += `<div class="ack-info" data-ack-info-for="${msg.id}">⏳ 수리실 확인 대기 중</div>`;
         }
 
