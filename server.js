@@ -217,12 +217,27 @@ io.on('connection', (socket) => {
   });
 
   // 메시지 수신
-  socket.on('message', (text) => {
+  // payload: 문자열(text) 또는 객체 { text, withVoice } 둘 다 호환
+  socket.on('message', (payload) => {
     const center = socketCenter.get(socket.id);
     if (!center) return;
     const data = getCenterData(center);
     const user = data.users.get(socket.id);
-    if (!user || !text || !text.trim()) return;
+    if (!user) return;
+
+    // 하위 호환성: payload가 문자열이면 텍스트 모드로 처리
+    let text, withVoice;
+    if (typeof payload === 'string') {
+      text = payload;
+      withVoice = false;
+    } else if (payload && typeof payload === 'object') {
+      text = payload.text;
+      withVoice = payload.withVoice === true;
+    } else {
+      return;
+    }
+
+    if (!text || !text.trim()) return;
 
     const message = {
       id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
@@ -230,6 +245,7 @@ io.on('connection', (socket) => {
       name: user.name,
       role: user.role,
       text: text.trim(),
+      withVoice: withVoice,  // 음성 알림 여부
       timestamp: new Date().toISOString(),
       acknowledged: false,
       acknowledgedBy: null,
