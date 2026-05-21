@@ -643,6 +643,60 @@
       background: var(--surface);
     }
 
+    /* ==================== 음성 모드 토글 ==================== */
+    .voice-mode-toggle {
+      /* 기본은 숨김 - 고객대기실 사용자에게만 .show 클래스로 표시 */
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      margin-bottom: 10px;
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      border-radius: 18px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: inherit;
+    }
+
+    /* 고객대기실 사용자에게만 토글 표시 */
+    .voice-mode-toggle.show {
+      display: inline-flex;
+    }
+
+    .voice-mode-toggle:hover {
+      background: var(--brand-50);
+      border-color: var(--brand);
+      color: var(--brand-dark);
+    }
+
+    /* 음성 모드일 때 토글 버튼 스타일 */
+    .voice-mode-toggle.active {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: white;
+      box-shadow: 0 2px 8px rgba(50, 124, 219, 0.25);
+    }
+
+    .voice-mode-toggle.active:hover {
+      background: var(--brand-dark);
+      border-color: var(--brand-dark);
+    }
+
+    .voice-mode-toggle-icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .voice-mode-toggle-text {
+      line-height: 1;
+    }
+
     .input-wrapper {
       display: flex;
       gap: 12px;
@@ -663,7 +717,7 @@
       font-weight: 500;
       resize: none;
       line-height: 1.4;
-      transition: border-color 0.15s ease, background 0.15s ease;
+      transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
     }
 
     .message-input::placeholder {
@@ -675,6 +729,18 @@
       outline: none;
       border-color: var(--brand);
       background: var(--surface);
+    }
+
+    /* 음성 모드일 때 입력창 테두리 파란색 강조 */
+    .input-wrapper.voice-mode .message-input {
+      border-color: var(--brand);
+      background: var(--brand-50);
+      box-shadow: 0 0 0 3px rgba(50, 124, 219, 0.12);
+    }
+
+    .input-wrapper.voice-mode .message-input::placeholder {
+      color: var(--brand);
+      font-weight: 500;
     }
 
     .send-btn {
@@ -811,6 +877,20 @@
       background: #c41036;
     }
 
+    /* 음성 알림 배지 - 음성 모드로 보낸 메시지 시각 구분 */
+    .voice-badge {
+      display: inline-block;
+      font-size: 0.92em;
+      margin-right: 2px;
+      vertical-align: baseline;
+      opacity: 0.85;
+    }
+
+    /* 음성 모드로 보낸 본인 메시지는 살짝 강조 */
+    .message.own .message-bubble:has(.voice-badge) {
+      box-shadow: 0 0 0 2px rgba(50, 124, 219, 0.18);
+    }
+
   </style>
 </head>
 <body>
@@ -916,7 +996,13 @@
       <div class="typing-indicator" id="typingIndicator"></div>
 
       <div class="input-area">
-        <div class="input-wrapper">
+        <!-- 음성 모드 토글 버튼 -->
+        <button class="voice-mode-toggle" id="voiceModeToggle" type="button" title="클릭하여 음성 모드 전환">
+          <span class="voice-mode-toggle-icon" id="voiceModeIcon">💬</span>
+          <span class="voice-mode-toggle-text" id="voiceModeText">텍스트 모드</span>
+        </button>
+
+        <div class="input-wrapper" id="inputWrapper">
           <textarea
             class="message-input"
             id="messageInput"
@@ -1111,6 +1197,17 @@
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('chatScreen').classList.add('active');
 
+        // 음성 모드 토글: 고객대기실 사용자에게만 표시
+        // 수리실은 음성을 보낼 필요가 없으므로 토글 숨김
+        const voiceToggleEl = document.getElementById('voiceModeToggle');
+        if (voiceToggleEl) {
+          if (myRole === 'service') {
+            voiceToggleEl.classList.add('show');
+          } else {
+            voiceToggleEl.classList.remove('show');
+          }
+        }
+
         // 센터명 표시
         document.getElementById('currentCenter').textContent = `📍 ${myCenter}`;
         document.getElementById('chatHeaderTitle').textContent = `${myCenter} 채팅방`;
@@ -1172,17 +1269,17 @@
       socket.on('history', (history) => {
         history.forEach(msg => renderMessage(msg));
         scrollToBottom();
-        // 수리실 입장 시: 아직 확인 안 된 응대실 메시지가 있으면 음성 반복 시작
-        // (단, 너무 많은 메시지가 동시에 울리지 않게 가장 최근 미확인 메시지만)
+        // 수리실 입장 시: 아직 확인 안 된 "음성 알림이 포함된" 응대실 메시지가 있으면 음성 반복 시작
+        // withVoice가 true인 메시지만 알림 대상
         if (myRole === 'repair') {
-          const unackedServiceMessages = history.filter(
-            m => m.type === 'chat' && m.role === 'service' && !m.acknowledged && !m.deleted && m.id
+          const unackedVoiceMessages = history.filter(
+            m => m.type === 'chat' && m.role === 'service' && !m.acknowledged && !m.deleted && m.id && m.withVoice === true
           );
-          // 가장 최근 미확인 메시지 1개에만 반복 알림 (스팸 방지)
-          if (unackedServiceMessages.length > 0) {
-            const latest = unackedServiceMessages[unackedServiceMessages.length - 1];
+          // 가장 최근 미확인 음성 메시지 1개에만 반복 알림 (스팸 방지)
+          if (unackedVoiceMessages.length > 0) {
+            const latest = unackedVoiceMessages[unackedVoiceMessages.length - 1];
             startRepeating(latest.id, latest.name, latest.text);
-            // 미확인 메시지가 있으면 시각 알림도 시작 (재접속 시에도 인지 가능)
+            // 미확인 음성 메시지가 있으면 시각 알림도 시작 (재접속 시에도 인지 가능)
             startVisualAlert();
           }
         }
@@ -1191,14 +1288,19 @@
       socket.on('message', (msg) => {
         renderMessage(msg);
         scrollToBottom();
-        // 음성 재생: 응대실(service)이 보낸 메시지를 수리실(repair)에서만 읽어줌
-        // 본인이 보낸 메시지는 읽지 않음, 삭제된 메시지도 읽지 않음
+        // 음성 재생 조건:
+        // 1. 응대실(service)이 보낸 메시지
+        // 2. 받는 사람이 수리실(repair)
+        // 3. 보낸 사람이 음성 모드로 보냈음 (withVoice === true)
+        // 4. 삭제되지 않은 메시지
+        // 5. 본인 메시지가 아님
         if (
           msg.type === 'chat' &&
-          !msg.deleted &&                   // 삭제된 메시지 아님
-          msg.role === 'service' &&         // 보낸 사람이 응대실
-          myRole === 'repair' &&            // 받는 사람이 수리실
-          !(msg.name === myName && msg.role === myRole) // 본인 메시지 아님
+          !msg.deleted &&
+          msg.role === 'service' &&
+          myRole === 'repair' &&
+          msg.withVoice === true &&        // 음성 모드로 보낸 메시지만!
+          !(msg.name === myName && msg.role === myRole)
         ) {
           // 첫 알림: 비프음 + 시각 알림 시작 + 음성 재생
           playBeep();
@@ -1338,12 +1440,17 @@
         const roleIcon = msg.role === 'repair' ? '🔧' : '💬';
         const roleLabel = msg.role === 'repair' ? '수리실' : '고객대기실';
 
+        // 음성 모드로 보낸 메시지는 시각적으로 구분되도록 🔊 아이콘 표시
+        const voiceBadge = (msg.withVoice === true && !isDeleted)
+          ? '<span class="voice-badge" title="음성 알림으로 전송됨">🔊</span> '
+          : '';
+
         let html = `
           <div class="message-meta">
             <span class="message-name ${msg.role}">${roleIcon} ${escapeHtml(msg.name)} · ${roleLabel}</span>
             <span>${time}</span>
           </div>
-          <div class="message-bubble">${escapeHtml(msg.text)}</div>
+          <div class="message-bubble">${voiceBadge}${escapeHtml(msg.text)}</div>
         `;
 
         // 본인이 보낸 메시지 + 삭제 안 된 메시지면 → 삭제 버튼 추가
@@ -1433,13 +1540,59 @@
     const messageInput = document.getElementById('messageInput');
     const sendBtn = document.getElementById('sendBtn');
 
+    // ==================== 음성 모드 토글 ====================
+    // 기본값: 텍스트 모드 (음성 안 보냄)
+    // 음성 모드일 때만 수신측에서 음성 알림 재생
+    // 한 번 전송하면 자동으로 텍스트 모드로 복귀 (실수 방지)
+    let voiceMode = false;
+
+    const voiceModeToggle = document.getElementById('voiceModeToggle');
+    const voiceModeIcon = document.getElementById('voiceModeIcon');
+    const voiceModeText = document.getElementById('voiceModeText');
+    const inputWrapper = document.getElementById('inputWrapper');
+
+    function setVoiceMode(enabled) {
+      voiceMode = enabled;
+      if (enabled) {
+        voiceModeToggle.classList.add('active');
+        voiceModeIcon.textContent = '🔊';
+        voiceModeText.textContent = '음성 모드';
+        inputWrapper.classList.add('voice-mode');
+        messageInput.placeholder = '음성 알림과 함께 메시지를 보냅니다...';
+      } else {
+        voiceModeToggle.classList.remove('active');
+        voiceModeIcon.textContent = '💬';
+        voiceModeText.textContent = '텍스트 모드';
+        inputWrapper.classList.remove('voice-mode');
+        messageInput.placeholder = '메시지를 입력하세요... (Shift+Enter 줄바꿈)';
+      }
+    }
+
+    // 토글 클릭 이벤트
+    voiceModeToggle.addEventListener('click', () => {
+      setVoiceMode(!voiceMode);
+      // 토글 후 입력창에 포커스 복귀
+      messageInput.focus();
+    });
+
     function sendMessage() {
       const text = messageInput.value.trim();
       if (!text || !socket) return;
-      socket.emit('message', text);
+
+      // 음성 모드 여부와 함께 전송
+      socket.emit('message', {
+        text: text,
+        withVoice: voiceMode
+      });
+
       messageInput.value = '';
       messageInput.style.height = 'auto';
       socket.emit('typing', false);
+
+      // 음성 모드로 보냈으면 자동으로 텍스트 모드로 복귀 (실수 방지)
+      if (voiceMode) {
+        setVoiceMode(false);
+      }
     }
 
     sendBtn.addEventListener('click', sendMessage);
