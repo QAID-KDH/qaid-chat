@@ -649,7 +649,7 @@
       display: none;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
+      padding: 6px 14px;
       margin-bottom: 10px;
       background: var(--surface-2);
       border: 1.5px solid var(--border);
@@ -662,6 +662,24 @@
       user-select: none;
       -webkit-user-select: none;
       font-family: inherit;
+      /* 모바일에서 텍스트 잘림 방지 */
+      white-space: nowrap;
+      flex-shrink: 0;
+      width: auto;
+      max-width: 100%;
+      box-sizing: border-box;
+      line-height: 1.2;
+      /* 모바일 브라우저의 기본 버튼 스타일 제거 */
+      -webkit-appearance: none;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
+    }
+
+    /* 포커스 상태에서도 기본 스타일 유지 (모바일 브라우저의 흰색 배경 버그 회피) */
+    .voice-mode-toggle:focus,
+    .voice-mode-toggle:focus-visible {
+      outline: none;
+      background: var(--surface-2);
     }
 
     /* 고객대기실 사용자에게만 토글 표시 */
@@ -676,25 +694,40 @@
     }
 
     /* 음성 모드일 때 토글 버튼 스타일 */
-    .voice-mode-toggle.active {
-      background: var(--brand);
-      border-color: var(--brand);
-      color: white;
+    /* :focus와 함께 적용 - 모바일에서 클릭 직후 포커스가 잡혀도 파란색 유지 */
+    .voice-mode-toggle.active,
+    .voice-mode-toggle.active:focus,
+    .voice-mode-toggle.active:focus-visible {
+      background: var(--brand) !important;
+      background-color: #327CDB !important;
+      border-color: var(--brand) !important;
+      color: white !important;
       box-shadow: 0 2px 8px rgba(50, 124, 219, 0.25);
+      outline: none;
+    }
+
+    /* active 상태일 때 자식 요소들도 명시적으로 흰색 (모바일 호환) */
+    .voice-mode-toggle.active .voice-mode-toggle-icon,
+    .voice-mode-toggle.active .voice-mode-toggle-text {
+      color: white !important;
     }
 
     .voice-mode-toggle.active:hover {
-      background: var(--brand-dark);
-      border-color: var(--brand-dark);
+      background: var(--brand-dark) !important;
+      background-color: #2569C4 !important;
+      border-color: var(--brand-dark) !important;
     }
 
     .voice-mode-toggle-icon {
       font-size: 14px;
       line-height: 1;
+      flex-shrink: 0;
     }
 
     .voice-mode-toggle-text {
       line-height: 1;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .input-wrapper {
@@ -1571,8 +1604,10 @@
     // 토글 클릭 이벤트
     voiceModeToggle.addEventListener('click', () => {
       setVoiceMode(!voiceMode);
+      // 클릭 직후 토글에서 포커스 제거 (모바일 :focus 배경 흰색 버그 회피)
+      voiceModeToggle.blur();
       // 토글 후 입력창에 포커스 복귀
-      messageInput.focus();
+      setTimeout(() => messageInput.focus(), 0);
     });
 
     function sendMessage() {
