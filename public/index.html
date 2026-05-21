@@ -722,9 +722,113 @@
       .sidebar { display: none; }
       .message { max-width: 85%; }
     }
+    /* ==================== 커스텀 확인 모달 ==================== */
+    /* window.confirm() 대신 사용 - Windows Electron의 포커스 버그 회피 */
+    .confirm-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+    }
+
+    .confirm-modal-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .confirm-modal {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 28px 24px 20px;
+      width: 92%;
+      max-width: 340px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+      transform: scale(0.92);
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .confirm-modal-backdrop.active .confirm-modal {
+      transform: scale(1);
+    }
+
+    .confirm-modal-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .confirm-modal-message {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      text-align: center;
+      margin-bottom: 22px;
+    }
+
+    .confirm-modal-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .confirm-modal-btn {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+
+    .confirm-modal-btn-cancel {
+      background: var(--surface-2);
+      color: var(--text-secondary);
+    }
+
+    .confirm-modal-btn-cancel:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .confirm-modal-btn-confirm {
+      background: var(--danger);
+      color: white;
+    }
+
+    .confirm-modal-btn-confirm:hover {
+      background: #c41036;
+    }
+
   </style>
 </head>
 <body>
+
+  <!-- 커스텀 확인 모달 (Windows Electron의 window.confirm 포커스 버그 회피용) -->
+  <div class="confirm-modal-backdrop" id="confirmModalBackdrop">
+    <div class="confirm-modal">
+      <div class="confirm-modal-title" id="confirmModalTitle">메시지 삭제</div>
+      <div class="confirm-modal-message" id="confirmModalMessage">
+        이 메시지를 삭제하시겠습니까?<br>
+        삭제된 메시지는 모든 사용자에게 "⊘ 삭제된 메시지"로 표시됩니다.
+      </div>
+      <div class="confirm-modal-buttons">
+        <button class="confirm-modal-btn confirm-modal-btn-cancel" id="confirmModalCancelBtn">취소</button>
+        <button class="confirm-modal-btn confirm-modal-btn-confirm" id="confirmModalConfirmBtn">삭제</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 로그인 화면 -->
   <div class="login-screen" id="loginScreen">
@@ -839,6 +943,65 @@
     let myPassword = '';
     let selectedRole = '';
     let typingTimer = null;
+
+    // ==================== 커스텀 확인 모달 ====================
+    // Windows Electron에서 window.confirm()이 IME/포커스 충돌을 일으키는 버그가 있어
+    // 직접 만든 모달로 대체. Promise 기반으로 confirm()과 똑같이 사용 가능.
+    function showConfirm(options = {}) {
+      return new Promise((resolve) => {
+        const backdrop = document.getElementById('confirmModalBackdrop');
+        const titleEl = document.getElementById('confirmModalTitle');
+        const messageEl = document.getElementById('confirmModalMessage');
+        const cancelBtn = document.getElementById('confirmModalCancelBtn');
+        const confirmBtn = document.getElementById('confirmModalConfirmBtn');
+
+        // 옵션 적용
+        if (options.title) titleEl.textContent = options.title;
+        if (options.message) messageEl.innerHTML = options.message;
+        if (options.cancelText) cancelBtn.textContent = options.cancelText;
+        if (options.confirmText) confirmBtn.textContent = options.confirmText;
+
+        // 모달 표시
+        backdrop.classList.add('active');
+
+        // 이벤트 핸들러 (한 번만 실행되도록 once 옵션)
+        const cleanup = () => {
+          backdrop.classList.remove('active');
+          cancelBtn.removeEventListener('click', onCancel);
+          confirmBtn.removeEventListener('click', onConfirm);
+          backdrop.removeEventListener('click', onBackdropClick);
+          document.removeEventListener('keydown', onKeyDown);
+        };
+
+        const onCancel = () => {
+          cleanup();
+          resolve(false);
+        };
+
+        const onConfirm = () => {
+          cleanup();
+          resolve(true);
+        };
+
+        const onBackdropClick = (e) => {
+          // 배경 클릭 시 취소
+          if (e.target === backdrop) onCancel();
+        };
+
+        const onKeyDown = (e) => {
+          if (e.key === 'Escape') onCancel();
+          else if (e.key === 'Enter') onConfirm();
+        };
+
+        cancelBtn.addEventListener('click', onCancel);
+        confirmBtn.addEventListener('click', onConfirm);
+        backdrop.addEventListener('click', onBackdropClick);
+        document.addEventListener('keydown', onKeyDown);
+
+        // 확인 버튼에 포커스 (엔터로 빠른 확정 가능)
+        setTimeout(() => confirmBtn.focus(), 50);
+      });
+    }
 
     // 페이지 로드 시 센터 목록 가져오기
     async function loadCenters() {
@@ -1231,10 +1394,23 @@
         // 삭제 버튼 클릭 이벤트
         const deleteBtn = div.querySelector('.delete-btn');
         if (deleteBtn) {
-          deleteBtn.addEventListener('click', (e) => {
+          deleteBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (confirm('이 메시지를 삭제하시겠습니까?\n\n삭제된 메시지는 모든 사용자에게 "⊘ 삭제된 메시지"로 표시됩니다.')) {
+            // window.confirm 대신 커스텀 모달 사용
+            // (Windows Electron의 confirm() 포커스 버그 회피)
+            const confirmed = await showConfirm({
+              title: '메시지 삭제',
+              message: '이 메시지를 삭제하시겠습니까?<br>삭제된 메시지는 모든 사용자에게 "⊘ 삭제된 메시지"로 표시됩니다.',
+              confirmText: '삭제',
+              cancelText: '취소'
+            });
+            if (confirmed) {
               deleteMessage(msg.id);
+              // 삭제 후 입력창에 명시적으로 포커스 (Windows Electron 안전장치)
+              const inputEl = document.getElementById('messageInput');
+              if (inputEl) {
+                setTimeout(() => inputEl.focus(), 100);
+              }
             }
           });
         }
