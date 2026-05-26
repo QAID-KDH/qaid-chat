@@ -1316,7 +1316,7 @@
           <div class="memo-section-label">제품군 선택</div>
           <div class="memo-product-select">
             <button class="memo-product-option" data-product="iOS" type="button">iOS</button>
-            <button class="memo-product-option" data-product="AirPod" type="button">AirPod</button>
+            <button class="memo-product-option" data-product="AirPods" type="button">AirPods</button>
             <button class="memo-product-option" data-product="Mac" type="button">Mac</button>
           </div>
         </div>
@@ -1557,47 +1557,64 @@
     // 제품군별 템플릿
     const REPAIR_TEMPLATES = {
       iOS: `- 고객 보고 증상 : 
-- 문제해결 및 진단 내역 : 
+- 문제해결 및 진단 내역
+  1. 
 - 외관 상태
   · 디스플레이 : 
   · 인클로저 : 
   · 후면유리 : 
-- 서비스 제안 내용 : `,
+- 서비스 제안 내용
+  · 수리에 적용되는 보증 : 
+  · 확인된 증상 : 
+  · 수리에 필요한 부품 : 
+  · 금액 : 
+  · 수리 유형 : 
+  · 예상 수리 완료 시간 : `,
 
-      AirPod: `- 고객 보고 증상 : 
-- 문제해결 및 진단 내역 : 
+      AirPods: `- 고객 보고 증상 : 
+- 문제해결 및 진단 내역
+  1. 
 - 외관 상태
   · 충전케이스 : 
   · 왼쪽 : 
   · 오른쪽 : 
-- 서비스 제안 내용 : `,
+- 서비스 제안 내용
+  · 수리에 적용되는 보증 : 
+  · 확인된 증상 : 
+  · 수리에 필요한 부품 : 
+  · 금액 : 
+  · 수리 유형 : 
+  · 예상 수리 완료 시간 : `,
 
       Mac: `- 고객 보고 증상 : 
-- 문제해결 및 진단 내역 : 
+- 문제해결 및 진단 내역
+  1. 
 - 외관 상태
   · 디스플레이 : 
   · 탑케이스 : 
   · 바텀케이스 : 
-- 서비스 제안 내용 : `
+- 서비스 제안 내용
+  · 수리에 적용되는 보증 : 
+  · 확인된 증상 : 
+  · 수리에 필요한 부품 : 
+  · 금액 : 
+  · 수리 유형 : 
+  · 예상 수리 완료 시간 : `
     };
 
     // 에스컬레이션 템플릿
-    const ESCALATION_TEMPLATE = `문제 범주: 
-주제: 
-- 문제 설명: 
-- GSX Sold-to(구매 계정): 
-- GSX Ship-to(배송 계정): 
-- 테크니션 이름: 
-- 테크니션 이메일 주소: 
-- 제품 일련 번호: 
-- 제품 모델: 
-- KBB 초기 입고 증상: 
-- VMI(마이크로 검사) 결과: 
-- 무단 개조 또는 의도적인 손상 유무: 
-- 참고한 문서: 
-- 수리 번호: 
-- 송장번호: 
-- 에스컬레이션 사유: `;
+    const ESCALATION_TEMPLATE = `GSX Sold-to ( 구매 계정 ) : 
+GSX Ship-to ( 배송 계정 ) : 
+수리 진행한 테크니션 이름 : 
+테크니션 이메일 주소 : 
+제품 일련 번호 : 
+제품 모델 : 
+모든 KBB 초기 접수 증상 ( 기능적 및 / 또는 물리적 문제 ) : 
+무단 개조 또는 의도적인 손상 유무 : 
+참고한 문서 : 
+수리 번호 : 
+고객에게 영향이 있는 긴급 요청 건 : 
+에스컬레이션 사유 : `;
 
     // localStorage 키
     const STORAGE_KEYS = {
@@ -1609,7 +1626,7 @@
 
     // 현재 탭 상태
     let currentMemoTab = 'repair'; // 'repair' 또는 'escalation'
-    let currentProduct = null; // 'iOS', 'AirPod', 'Mac' 또는 null
+    let currentProduct = null; // 'iOS', 'AirPods', 'Mac' 또는 null
 
     // DOM 참조
     const memoPanel = document.getElementById('memoPanel');
@@ -1725,6 +1742,68 @@
       localStorage.setItem(STORAGE_KEYS.escalationText, escalationText.value);
     });
 
+    // ===== 자동 번호 매기기 (Enter 시 다음 번호 자동 삽입) =====
+    // 현재 줄이 "  숫자. " 형식이면 Enter 시 다음 번호 자동 추가
+    // 빈 번호 줄("  3. " + 내용 없음)에서 Enter → 번호 매기기 종료
+    // 다른 섹션(외관 상태, 서비스 제안 등)에는 영향 없음
+    repairMemoText.addEventListener('keydown', (e) => {
+      // 한글 IME 조합 중에는 무시 (한글 입력 중 엔터 충돌 방지)
+      if (e.isComposing || e.keyCode === 229) return;
+
+      if (e.key !== 'Enter') return;
+      if (e.shiftKey) return; // Shift+Enter는 일반 줄바꿈
+
+      const textarea = e.target;
+      const cursorPos = textarea.selectionStart;
+      const text = textarea.value;
+
+      // 커서 위치 기준 현재 줄의 시작 위치 찾기
+      const lineStart = text.lastIndexOf('\n', cursorPos - 1) + 1;
+      const lineEnd = text.indexOf('\n', cursorPos);
+      const currentLine = text.slice(lineStart, lineEnd === -1 ? text.length : lineEnd);
+
+      // 현재 줄이 "  숫자. " 패턴인지 확인 (들여쓰기 2칸 + 숫자 + 마침표 + 공백)
+      const numberPattern = /^(  )(\d+)\.\s(.*)$/;
+      const match = currentLine.match(numberPattern);
+
+      if (!match) return; // 번호 줄이 아니면 일반 동작
+
+      const indent = match[1];
+      const currentNumber = parseInt(match[2], 10);
+      const lineContent = match[3];
+
+      // 빈 번호 줄에서 Enter → 번호 매기기 종료
+      if (lineContent.trim() === '') {
+        e.preventDefault();
+        // 현재 빈 번호 줄을 제거하고 일반 빈 줄로 대체
+        const newText = text.slice(0, lineStart) + '\n' + text.slice(lineEnd === -1 ? text.length : lineEnd + 1);
+        // 만약 마지막 줄이었다면 정리
+        const beforeLine = text.slice(0, lineStart);
+        const afterLine = lineEnd === -1 ? '' : text.slice(lineEnd);
+        textarea.value = beforeLine + afterLine.replace(/^\n/, '');
+        // 커서 위치
+        textarea.selectionStart = textarea.selectionEnd = lineStart;
+        // input 이벤트 수동 발생 (localStorage 저장 트리거)
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
+
+      // 다음 번호 자동 삽입
+      e.preventDefault();
+      const nextNumber = currentNumber + 1;
+      const insertion = '\n' + indent + nextNumber + '. ';
+
+      const newText = text.slice(0, cursorPos) + insertion + text.slice(cursorPos);
+      textarea.value = newText;
+
+      // 커서를 새 번호 뒤로 이동
+      const newCursorPos = cursorPos + insertion.length;
+      textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+
+      // input 이벤트 수동 발생 (localStorage 저장 트리거)
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     // 복사하기 - 현재 활성 탭의 내용을 클립보드에 복사
     async function copyMemoText() {
       let textToCopy = '';
@@ -1809,6 +1888,52 @@
 
     // localStorage에서 복원
     function restoreMemoState() {
+      // ===== localStorage 마이그레이션 =====
+      // 1) 'AirPod' → 'AirPods' 키 변경 (이전 버전 호환)
+      const oldProduct = localStorage.getItem(STORAGE_KEYS.repairProduct);
+      if (oldProduct === 'AirPod') {
+        localStorage.setItem(STORAGE_KEYS.repairProduct, 'AirPods');
+      }
+      // 2) 이전 에스컬레이션 템플릿이 그대로 저장되어 있으면 새 템플릿으로 교체
+      //    (사용자가 작성한 내용이 거의 없을 때만 자동 교체)
+      const oldEscalationMarkers = ['문제 범주:', '주제:', '- VMI(마이크로 검사)', '- 송장번호:'];
+      const savedEsc = localStorage.getItem(STORAGE_KEYS.escalationText);
+      if (savedEsc) {
+        const hasOldMarkers = oldEscalationMarkers.some(m => savedEsc.includes(m));
+        // 모든 콜론 뒤가 빈 칸인지 확인 (작성 안 된 빈 템플릿인지 판단)
+        const isEmptyTemplate = savedEsc.split('\n').every(line => {
+          const idx = line.indexOf(':');
+          if (idx === -1) return true;
+          return line.slice(idx + 1).trim() === '';
+        });
+        if (hasOldMarkers && isEmptyTemplate) {
+          // 빈 옛 템플릿 → 새 템플릿으로 교체
+          localStorage.setItem(STORAGE_KEYS.escalationText, ESCALATION_TEMPLATE);
+        }
+      }
+
+      // 3) 수리메모 빈 옛 템플릿이면 새 템플릿으로 교체
+      //    옛 템플릿 마커: "- 문제해결 및 진단 내역 : " (콜론 있음) 또는
+      //                    "- 서비스 제안 내용 : " (콜론 있음, 하위 항목 없음)
+      const savedRepair = localStorage.getItem(STORAGE_KEYS.repairText);
+      const savedProductForMig = localStorage.getItem(STORAGE_KEYS.repairProduct);
+      if (savedRepair && savedProductForMig && REPAIR_TEMPLATES[savedProductForMig]) {
+        const hasOldRepairMarkers =
+          savedRepair.includes('- 문제해결 및 진단 내역 :') ||
+          (savedRepair.includes('- 서비스 제안 내용 :') && !savedRepair.includes('· 수리에 적용되는 보증'));
+
+        // 모든 콜론 뒤가 빈 칸인지 (실제 내용이 없는 빈 템플릿인지) 확인
+        const isEmptyRepair = savedRepair.split('\n').every(line => {
+          const idx = line.indexOf(':');
+          if (idx === -1) return true;
+          return line.slice(idx + 1).trim() === '';
+        });
+
+        if (hasOldRepairMarkers && isEmptyRepair) {
+          localStorage.setItem(STORAGE_KEYS.repairText, REPAIR_TEMPLATES[savedProductForMig]);
+        }
+      }
+
       // 수리메모 복원
       const savedProduct = localStorage.getItem(STORAGE_KEYS.repairProduct);
       const savedRepairText = localStorage.getItem(STORAGE_KEYS.repairText);
