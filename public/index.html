@@ -924,6 +924,353 @@
       box-shadow: 0 0 0 2px rgba(50, 124, 219, 0.18);
     }
 
+    /* ==================== 작업 패널 (수리메모 + 에스컬레이션) ==================== */
+    /* 헤더의 메모 버튼 */
+    .memo-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      border-radius: 18px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-appearance: none;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
+      font-family: inherit;
+      white-space: nowrap;
+      flex-shrink: 0;
+      line-height: 1.2;
+    }
+
+    .memo-btn:hover {
+      background: var(--brand-50);
+      border-color: var(--brand);
+      color: var(--brand-dark);
+    }
+
+    .memo-btn:focus,
+    .memo-btn:focus-visible {
+      outline: none;
+      background: var(--surface-2);
+    }
+
+    /* 활성화 시 (사이드바 열려있을 때) */
+    .memo-btn.active,
+    .memo-btn.active:focus,
+    .memo-btn.active:focus-visible {
+      background: var(--brand) !important;
+      background-color: #327CDB !important;
+      border-color: var(--brand) !important;
+      color: white !important;
+      box-shadow: 0 2px 8px rgba(50, 124, 219, 0.25);
+    }
+
+    .memo-btn.active:hover {
+      background: var(--brand-dark) !important;
+      border-color: var(--brand-dark) !important;
+    }
+
+    /* 작업 패널 백드롭 (모바일에서만) */
+    .memo-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: 998;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .memo-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* 우측 슬라이드 사이드바 */
+    .memo-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 420px;
+      max-width: 92vw;
+      height: 100vh;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      box-shadow: -4px 0 20px rgba(0, 0, 0, 0.06);
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    .memo-panel.active {
+      transform: translateX(0);
+    }
+
+    /* 패널 헤더 */
+    .memo-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      background: var(--surface);
+    }
+
+    .memo-panel-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .memo-panel-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-size: 18px;
+      transition: background 0.15s ease;
+      -webkit-appearance: none;
+      outline: none;
+    }
+
+    .memo-panel-close:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    /* 탭 영역 */
+    .memo-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .memo-tab {
+      flex: 1;
+      padding: 9px 12px;
+      background: var(--surface-2);
+      border: 1.5px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      transition: all 0.15s ease;
+      font-family: inherit;
+      -webkit-appearance: none;
+      outline: none;
+      white-space: nowrap;
+    }
+
+    .memo-tab:hover {
+      background: var(--brand-50);
+      color: var(--brand-dark);
+    }
+
+    .memo-tab.active {
+      background: var(--brand);
+      color: white;
+      border-color: var(--brand);
+    }
+
+    /* 패널 본문 */
+    .memo-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* 섹션 라벨 */
+    .memo-section-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .memo-section-label::before {
+      content: '';
+      width: 3px;
+      height: 14px;
+      background: var(--brand);
+      border-radius: 2px;
+    }
+
+    /* 제품군 선택 영역 */
+    .memo-product-select {
+      display: flex;
+      gap: 8px;
+    }
+
+    .memo-product-option {
+      flex: 1;
+      padding: 12px 8px;
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-align: center;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      -webkit-appearance: none;
+      outline: none;
+    }
+
+    .memo-product-option:hover {
+      background: var(--brand-50);
+      border-color: var(--brand);
+      color: var(--brand-dark);
+    }
+
+    .memo-product-option.selected {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: white;
+    }
+
+    /* 메모 텍스트 영역 */
+    .memo-textarea {
+      width: 100%;
+      min-height: 320px;
+      padding: 14px 16px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 13px;
+      font-family: 'Pretendard Variable', 'Apple SD Gothic Neo', 'Malgun Gothic', monospace;
+      color: var(--text);
+      line-height: 1.7;
+      resize: vertical;
+      transition: border-color 0.15s ease;
+      box-sizing: border-box;
+    }
+
+    .memo-textarea:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(50, 124, 219, 0.1);
+    }
+
+    .memo-textarea::placeholder {
+      color: var(--text-dim);
+    }
+
+    /* 안내 메시지 (제품군 미선택 시) */
+    .memo-empty-hint {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 13px;
+      line-height: 1.6;
+      background: var(--surface-2);
+      border-radius: 10px;
+      border: 1.5px dashed var(--border);
+    }
+
+    .memo-empty-hint-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+      opacity: 0.5;
+    }
+
+    /* 패널 푸터 (버튼 영역) */
+    .memo-panel-footer {
+      display: flex;
+      gap: 8px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      background: var(--surface);
+    }
+
+    .memo-btn-secondary,
+    .memo-btn-primary {
+      padding: 11px 16px;
+      border-radius: 10px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      -webkit-appearance: none;
+      outline: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .memo-btn-secondary {
+      background: var(--surface-2);
+      color: var(--text-secondary);
+      flex: 0 0 auto;
+    }
+
+    .memo-btn-secondary:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .memo-btn-primary {
+      background: var(--brand);
+      color: white;
+      flex: 1;
+    }
+
+    .memo-btn-primary:hover {
+      background: var(--brand-dark);
+    }
+
+    .memo-btn-primary.copied {
+      background: #10B981;
+    }
+
+    /* 모바일 대응 */
+    @media (max-width: 768px) {
+      .memo-panel {
+        width: 100vw;
+        max-width: 100vw;
+      }
+      .memo-panel-body {
+        padding: 14px 16px;
+      }
+      .memo-tabs {
+        padding: 10px 16px;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -942,6 +1289,79 @@
       </div>
     </div>
   </div>
+
+  <!-- ==================== 작업 패널 (수리메모 / 에스컬레이션) ==================== -->
+  <div class="memo-backdrop" id="memoBackdrop"></div>
+  <aside class="memo-panel" id="memoPanel">
+    <div class="memo-panel-header">
+      <div class="memo-panel-title">
+        <span id="memoPanelIcon">🔧</span>
+        <span id="memoPanelTitle">수리메모</span>
+      </div>
+      <button class="memo-panel-close" id="memoPanelCloseBtn" type="button" title="닫기">✕</button>
+    </div>
+
+    <!-- 탭 -->
+    <div class="memo-tabs">
+      <button class="memo-tab active" data-tab="repair" type="button">🔧 수리메모</button>
+      <button class="memo-tab" data-tab="escalation" type="button">⚠️ 에스컬레이션</button>
+    </div>
+
+    <!-- 본문 -->
+    <div class="memo-panel-body">
+      <!-- 수리메모 탭 콘텐츠 -->
+      <div id="repairTabContent">
+        <!-- 제품군 선택 -->
+        <div>
+          <div class="memo-section-label">제품군 선택</div>
+          <div class="memo-product-select">
+            <button class="memo-product-option" data-product="iOS" type="button">iOS</button>
+            <button class="memo-product-option" data-product="AirPod" type="button">AirPod</button>
+            <button class="memo-product-option" data-product="Mac" type="button">Mac</button>
+          </div>
+        </div>
+
+        <!-- 메모 작성창 -->
+        <div style="margin-top: 16px;">
+          <div class="memo-section-label">메모 작성창</div>
+          <div id="repairMemoArea">
+            <div class="memo-empty-hint" id="repairEmptyHint">
+              <div class="memo-empty-hint-icon">📋</div>
+              <div>제품군을 먼저 선택해주세요</div>
+              <div style="font-size: 11.5px; margin-top: 4px; opacity: 0.7;">선택하면 자동으로 템플릿이 입력됩니다</div>
+            </div>
+            <textarea
+              class="memo-textarea"
+              id="repairMemoText"
+              placeholder="제품군을 선택하면 템플릿이 자동으로 입력됩니다..."
+              style="display: none;"
+              spellcheck="false"
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- 에스컬레이션 탭 콘텐츠 -->
+      <div id="escalationTabContent" style="display: none;">
+        <div class="memo-section-label">에스컬레이션 작성창</div>
+        <textarea
+          class="memo-textarea"
+          id="escalationText"
+          spellcheck="false"
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- 푸터: 버튼 -->
+    <div class="memo-panel-footer">
+      <button class="memo-btn-secondary" id="memoClearBtn" type="button" title="작성 내용 모두 지우기">
+        🗑️ 지우기
+      </button>
+      <button class="memo-btn-primary" id="memoCopyBtn" type="button">
+        📋 복사하기
+      </button>
+    </div>
+  </aside>
 
   <!-- 로그인 화면 -->
   <div class="login-screen" id="loginScreen">
@@ -1012,7 +1432,15 @@
     <main class="main">
       <header class="chat-header">
         <div class="chat-header-title" id="chatHeaderTitle">전체 채팅방</div>
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <button class="memo-btn" id="openMemoBtn" type="button" title="수리메모 작성">
+            <span>🔧</span>
+            <span>수리메모</span>
+          </button>
+          <button class="memo-btn" id="openEscalationBtn" type="button" title="에스컬레이션 작성">
+            <span>⚠️</span>
+            <span>에스컬레이션</span>
+          </button>
           <button id="voiceToggle" class="voice-toggle" title="음성 읽기 켜기/끄기">
             <span id="voiceIcon">🔊</span>
             <span id="voiceLabel">음성 ON</span>
@@ -1121,6 +1549,326 @@
         setTimeout(() => confirmBtn.focus(), 50);
       });
     }
+
+    // ==================== 작업 패널 (수리메모 + 에스컬레이션) ====================
+    // 우측 슬라이드 사이드바로 작성 → 클립보드 복사 기능
+    // localStorage에 저장하여 브라우저 닫아도 내용 유지
+
+    // 제품군별 템플릿
+    const REPAIR_TEMPLATES = {
+      iOS: `- 고객 보고 증상 : 
+- 문제해결 및 진단 내역 : 
+- 외관 상태
+  · 디스플레이 : 
+  · 인클로저 : 
+  · 후면유리 : 
+- 서비스 제안 내용 : `,
+
+      AirPod: `- 고객 보고 증상 : 
+- 문제해결 및 진단 내역 : 
+- 외관 상태
+  · 충전케이스 : 
+  · 왼쪽 : 
+  · 오른쪽 : 
+- 서비스 제안 내용 : `,
+
+      Mac: `- 고객 보고 증상 : 
+- 문제해결 및 진단 내역 : 
+- 외관 상태
+  · 디스플레이 : 
+  · 탑케이스 : 
+  · 바텀케이스 : 
+- 서비스 제안 내용 : `
+    };
+
+    // 에스컬레이션 템플릿
+    const ESCALATION_TEMPLATE = `문제 범주: 
+주제: 
+- 문제 설명: 
+- GSX Sold-to(구매 계정): 
+- GSX Ship-to(배송 계정): 
+- 테크니션 이름: 
+- 테크니션 이메일 주소: 
+- 제품 일련 번호: 
+- 제품 모델: 
+- KBB 초기 입고 증상: 
+- VMI(마이크로 검사) 결과: 
+- 무단 개조 또는 의도적인 손상 유무: 
+- 참고한 문서: 
+- 수리 번호: 
+- 송장번호: 
+- 에스컬레이션 사유: `;
+
+    // localStorage 키
+    const STORAGE_KEYS = {
+      repairProduct: 'qaid_memo_repair_product',
+      repairText: 'qaid_memo_repair_text',
+      escalationText: 'qaid_memo_escalation_text',
+      activeTab: 'qaid_memo_active_tab'
+    };
+
+    // 현재 탭 상태
+    let currentMemoTab = 'repair'; // 'repair' 또는 'escalation'
+    let currentProduct = null; // 'iOS', 'AirPod', 'Mac' 또는 null
+
+    // DOM 참조
+    const memoPanel = document.getElementById('memoPanel');
+    const memoBackdrop = document.getElementById('memoBackdrop');
+    const openMemoBtn = document.getElementById('openMemoBtn');
+    const openEscalationBtn = document.getElementById('openEscalationBtn');
+    const memoPanelCloseBtn = document.getElementById('memoPanelCloseBtn');
+    const memoTabs = document.querySelectorAll('.memo-tab');
+    const memoProductOptions = document.querySelectorAll('.memo-product-option');
+    const repairTabContent = document.getElementById('repairTabContent');
+    const escalationTabContent = document.getElementById('escalationTabContent');
+    const repairEmptyHint = document.getElementById('repairEmptyHint');
+    const repairMemoText = document.getElementById('repairMemoText');
+    const escalationText = document.getElementById('escalationText');
+    const memoCopyBtn = document.getElementById('memoCopyBtn');
+    const memoClearBtn = document.getElementById('memoClearBtn');
+    const memoPanelIcon = document.getElementById('memoPanelIcon');
+    const memoPanelTitle = document.getElementById('memoPanelTitle');
+
+    // 패널 열기/닫기
+    function openMemoPanel(tab) {
+      memoPanel.classList.add('active');
+      memoBackdrop.classList.add('active');
+      switchMemoTab(tab);
+      // 헤더 버튼 active 상태 갱신
+      updateMemoButtonState();
+    }
+
+    function closeMemoPanel() {
+      memoPanel.classList.remove('active');
+      memoBackdrop.classList.remove('active');
+      openMemoBtn.classList.remove('active');
+      openEscalationBtn.classList.remove('active');
+    }
+
+    // 헤더 버튼 활성 상태 갱신
+    function updateMemoButtonState() {
+      const isOpen = memoPanel.classList.contains('active');
+      openMemoBtn.classList.toggle('active', isOpen && currentMemoTab === 'repair');
+      openEscalationBtn.classList.toggle('active', isOpen && currentMemoTab === 'escalation');
+    }
+
+    // 탭 전환
+    function switchMemoTab(tab) {
+      currentMemoTab = tab;
+      localStorage.setItem(STORAGE_KEYS.activeTab, tab);
+
+      // 탭 버튼 활성화
+      memoTabs.forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === tab);
+      });
+
+      // 콘텐츠 전환
+      if (tab === 'repair') {
+        repairTabContent.style.display = '';
+        escalationTabContent.style.display = 'none';
+        memoPanelIcon.textContent = '🔧';
+        memoPanelTitle.textContent = '수리메모';
+      } else {
+        repairTabContent.style.display = 'none';
+        escalationTabContent.style.display = '';
+        memoPanelIcon.textContent = '⚠️';
+        memoPanelTitle.textContent = '에스컬레이션';
+      }
+      updateMemoButtonState();
+    }
+
+    // 제품군 선택
+    async function selectProduct(product) {
+      // 이미 선택된 동일 제품군 클릭 → 무시
+      if (currentProduct === product) return;
+
+      // 작성 중인 내용이 있고 + 다른 제품군 선택 시 확인
+      const currentText = repairMemoText.value.trim();
+      const isCurrentTemplateUntouched = currentProduct && currentText === REPAIR_TEMPLATES[currentProduct].trim();
+
+      if (currentText && !isCurrentTemplateUntouched && currentProduct !== null) {
+        const confirmed = await showConfirm({
+          title: '제품군 변경',
+          message: `현재 작성 중인 내용이 사라집니다.<br>${product} 템플릿으로 변경하시겠습니까?`,
+          confirmText: '변경',
+          cancelText: '취소'
+        });
+        if (!confirmed) return;
+      }
+
+      // 제품군 변경 적용
+      currentProduct = product;
+      localStorage.setItem(STORAGE_KEYS.repairProduct, product);
+
+      // 버튼 활성화 표시
+      memoProductOptions.forEach(opt => {
+        opt.classList.toggle('selected', opt.dataset.product === product);
+      });
+
+      // 템플릿 자동 입력
+      repairMemoText.value = REPAIR_TEMPLATES[product];
+      localStorage.setItem(STORAGE_KEYS.repairText, repairMemoText.value);
+
+      // UI 전환: 안내 메시지 숨기고 textarea 표시
+      repairEmptyHint.style.display = 'none';
+      repairMemoText.style.display = '';
+      // 포커스
+      setTimeout(() => repairMemoText.focus(), 100);
+    }
+
+    // 텍스트 영역 변경 시 저장
+    repairMemoText.addEventListener('input', () => {
+      localStorage.setItem(STORAGE_KEYS.repairText, repairMemoText.value);
+    });
+
+    escalationText.addEventListener('input', () => {
+      localStorage.setItem(STORAGE_KEYS.escalationText, escalationText.value);
+    });
+
+    // 복사하기 - 현재 활성 탭의 내용을 클립보드에 복사
+    async function copyMemoText() {
+      let textToCopy = '';
+      if (currentMemoTab === 'repair') {
+        textToCopy = repairMemoText.value;
+        if (!textToCopy.trim() || !currentProduct) {
+          showCopyFeedback('제품군을 선택하고 내용을 입력해주세요', false);
+          return;
+        }
+      } else {
+        textToCopy = escalationText.value;
+        if (!textToCopy.trim()) {
+          showCopyFeedback('내용이 비어있습니다', false);
+          return;
+        }
+      }
+
+      // 클립보드 복사 시도 (최신 API → fallback)
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        showCopyFeedback('복사되었습니다!', true);
+      } catch (err) {
+        // fallback: textarea로 복사
+        const target = currentMemoTab === 'repair' ? repairMemoText : escalationText;
+        target.select();
+        target.setSelectionRange(0, 99999);
+        try {
+          document.execCommand('copy');
+          showCopyFeedback('복사되었습니다!', true);
+        } catch (e) {
+          showCopyFeedback('복사 실패. 수동 복사해주세요', false);
+        }
+      }
+    }
+
+    // 복사 버튼 피드백
+    function showCopyFeedback(message, isSuccess) {
+      const originalText = '📋 복사하기';
+      const originalClass = memoCopyBtn.className;
+
+      if (isSuccess) {
+        memoCopyBtn.innerHTML = '✓ ' + message;
+        memoCopyBtn.classList.add('copied');
+      } else {
+        memoCopyBtn.innerHTML = '⚠️ ' + message;
+      }
+
+      setTimeout(() => {
+        memoCopyBtn.innerHTML = originalText;
+        memoCopyBtn.className = originalClass;
+      }, 1800);
+    }
+
+    // 지우기 (현재 활성 탭의 내용만 삭제)
+    async function clearMemoText() {
+      const tabName = currentMemoTab === 'repair' ? '수리메모' : '에스컬레이션';
+      const confirmed = await showConfirm({
+        title: '작성 내용 삭제',
+        message: `${tabName} 작성 내용을 모두 지우시겠습니까?<br>이 작업은 되돌릴 수 없습니다.`,
+        confirmText: '지우기',
+        cancelText: '취소'
+      });
+      if (!confirmed) return;
+
+      if (currentMemoTab === 'repair') {
+        repairMemoText.value = '';
+        currentProduct = null;
+        localStorage.removeItem(STORAGE_KEYS.repairText);
+        localStorage.removeItem(STORAGE_KEYS.repairProduct);
+
+        // 제품군 선택 해제
+        memoProductOptions.forEach(opt => opt.classList.remove('selected'));
+
+        // UI 원상복귀
+        repairEmptyHint.style.display = '';
+        repairMemoText.style.display = 'none';
+      } else {
+        escalationText.value = '';
+        localStorage.removeItem(STORAGE_KEYS.escalationText);
+      }
+    }
+
+    // localStorage에서 복원
+    function restoreMemoState() {
+      // 수리메모 복원
+      const savedProduct = localStorage.getItem(STORAGE_KEYS.repairProduct);
+      const savedRepairText = localStorage.getItem(STORAGE_KEYS.repairText);
+
+      if (savedProduct && REPAIR_TEMPLATES[savedProduct]) {
+        currentProduct = savedProduct;
+        memoProductOptions.forEach(opt => {
+          opt.classList.toggle('selected', opt.dataset.product === savedProduct);
+        });
+        repairEmptyHint.style.display = 'none';
+        repairMemoText.style.display = '';
+        // 저장된 텍스트가 있으면 복원, 없으면 템플릿 입력
+        repairMemoText.value = savedRepairText !== null ? savedRepairText : REPAIR_TEMPLATES[savedProduct];
+      }
+
+      // 에스컬레이션 복원 (텍스트가 없으면 템플릿으로 초기화)
+      const savedEscalation = localStorage.getItem(STORAGE_KEYS.escalationText);
+      escalationText.value = savedEscalation !== null ? savedEscalation : ESCALATION_TEMPLATE;
+    }
+
+    // 이벤트 바인딩
+    openMemoBtn.addEventListener('click', () => {
+      if (memoPanel.classList.contains('active') && currentMemoTab === 'repair') {
+        closeMemoPanel();
+      } else {
+        openMemoPanel('repair');
+      }
+    });
+
+    openEscalationBtn.addEventListener('click', () => {
+      if (memoPanel.classList.contains('active') && currentMemoTab === 'escalation') {
+        closeMemoPanel();
+      } else {
+        openMemoPanel('escalation');
+      }
+    });
+
+    memoPanelCloseBtn.addEventListener('click', closeMemoPanel);
+    memoBackdrop.addEventListener('click', closeMemoPanel);
+
+    memoTabs.forEach(tab => {
+      tab.addEventListener('click', () => switchMemoTab(tab.dataset.tab));
+    });
+
+    memoProductOptions.forEach(opt => {
+      opt.addEventListener('click', () => selectProduct(opt.dataset.product));
+    });
+
+    memoCopyBtn.addEventListener('click', copyMemoText);
+    memoClearBtn.addEventListener('click', clearMemoText);
+
+    // ESC 키로 패널 닫기
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && memoPanel.classList.contains('active')) {
+        closeMemoPanel();
+      }
+    });
+
+    // 페이지 로드 시 저장된 상태 복원
+    restoreMemoState();
 
     // 페이지 로드 시 센터 목록 가져오기
     async function loadCenters() {
