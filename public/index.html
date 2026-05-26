@@ -2130,7 +2130,19 @@ GSX Ship-to ( 배송 계정 ) :
 
       } catch (err) {
         console.error('PIP 창 생성 실패:', err);
-        alert('미니창을 띄우지 못했습니다. 잠시 후 다시 시도해주세요.');
+        console.error('에러 이름:', err.name);
+        console.error('에러 메시지:', err.message);
+
+        // 사용자에게 더 구체적인 안내
+        let userMessage = '미니창을 띄우지 못했습니다.\n\n';
+        if (err.name === 'NotAllowedError' || err.message?.includes('permission')) {
+          userMessage += '브라우저/앱에서 PIP 권한이 거부되었습니다.\n앱을 다시 시작해보세요.';
+        } else if (err.name === 'InvalidStateError') {
+          userMessage += '현재 상태에서 미니창을 띄울 수 없습니다.\n잠시 후 다시 시도해주세요.';
+        } else {
+          userMessage += '잠시 후 다시 시도해주세요.\n\n오류: ' + (err.message || err.name || '알 수 없음');
+        }
+        alert(userMessage);
         pipWindow = null;
       }
     }
