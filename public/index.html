@@ -346,6 +346,45 @@
     .voice-toggle.off { opacity: 0.6; }
     .voice-toggle.off #voiceIcon::before { content: '🔇'; }
 
+    /* ===== 알림 토글 버튼 (시스템 알림 ON/OFF) ===== */
+    .notif-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      background: var(--brand-50, #F4F9FE);
+      border: 1.5px solid var(--brand, #327CDB);
+      border-radius: 8px;
+      color: var(--brand-dark, #1E5BAA);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .notif-toggle-btn:hover {
+      background: var(--brand-light, #E8F2FC);
+    }
+
+    .notif-toggle-btn.off {
+      background: var(--surface-2);
+      border-color: var(--border);
+      color: var(--text-dim, #9098A4);
+    }
+
+    .notif-toggle-btn.off:hover {
+      background: var(--surface-2);
+      border-color: var(--text-dim, #9098A4);
+    }
+
+    /* 권한 거부된 경우 (사용 불가) */
+    .notif-toggle-btn.denied {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .connection-status {
       display: flex;
       align-items: center;
@@ -1517,6 +1556,10 @@
       <header class="chat-header">
         <div class="chat-header-title" id="chatHeaderTitle">전체 채팅방</div>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <button class="notif-toggle-btn" id="notifToggleBtn" type="button" title="시스템 알림 켜기/끄기">
+            <span id="notifIcon">🔔</span>
+            <span id="notifLabel">알림</span>
+          </button>
           <button class="memo-btn" id="openMemoBtn" type="button" title="수리메모 작성">
             <span>🔧</span>
             <span>수리메모</span>
@@ -2482,6 +2525,18 @@ GSX Ship-to ( 배송 계정 ) :
       socket.on('message', (msg) => {
         renderMessage(msg);
         scrollToBottom();
+
+        // ===== 시스템 알림 (모든 메시지에 적용) =====
+        // 본인 메시지가 아니고, 채팅 타입이고, 삭제되지 않은 메시지만
+        if (
+          msg.type === 'chat' &&
+          !msg.deleted &&
+          !(msg.name === myName && msg.role === myRole)
+        ) {
+          showSystemNotification(msg.name, msg.role);
+        }
+
+        // ===== 음성 모드 메시지: 기존 동작 (변경 없음) =====
         // 음성 재생 조건:
         // 1. 응대실(service)이 보낸 메시지
         // 2. 받는 사람이 수리실(repair)
@@ -2907,6 +2962,162 @@ GSX Ship-to ( 배송 계정 ) :
       gainNode.connect(compressor);
       compressor.connect(ctx.destination);
     }
+
+    // ==================== 시스템 알림 (NEW) ====================
+    // 카카오톡식 OS 알림 - 시각만, 소리 없음
+    // 메시지 내용은 노출 안 하고 보낸 사람만 표시
+    // 사용자가 토글로 끌 수 있음 (시스템 알림만, 음성/반복은 영향 X)
+
+    let notificationPermissionRequested = false;
+    let activeNotification = null; // 현재 떠있는 알림 (중복 방지용)
+
+    // 알림 토글 상태 (localStorage에 저장)
+    // 기본값: ON (true)
+    let notificationsEnabled = localStorage.getItem('qaid_notifications_enabled') !== 'false';
+
+    const notifToggleBtn = document.getElementById('notifToggleBtn');
+    const notifIcon = document.getElementById('notifIcon');
+    const notifLabel = document.getElementById('notifLabel');
+
+    // 토글 UI 업데이트
+    function updateNotifToggleUI() {
+      if (notificationsEnabled) {
+        notifToggleBtn.classList.remove('off');
+        notifIcon.textContent = '🔔';
+        notifLabel.textContent = '알림';
+        notifToggleBtn.title = '시스템 알림 끄기 (현재: 켜짐)';
+      } else {
+        notifToggleBtn.classList.add('off');
+        notifIcon.textContent = '🔕';
+        notifLabel.textContent = '알림 끔';
+        notifToggleBtn.title = '시스템 알림 켜기 (현재: 꺼짐)';
+      }
+
+      // 권한 거부됐으면 회색 처리 + 사용 안내
+      if ('Notification' in window && Notification.permission === 'denied') {
+        notifToggleBtn.classList.add('denied');
+        notifToggleBtn.title = 'OS 설정에서 알림 권한이 거부되었습니다.\nOS 설정에서 권한을 허용해주세요.';
+      } else {
+        notifToggleBtn.classList.remove('denied');
+      }
+    }
+
+    // 토글 클릭 핸들러
+    notifToggleBtn.addEventListener('click', async () => {
+      // 권한 거부 상태면 안내만
+      if ('Notification' in window && Notification.permission === 'denied') {
+        alert('알림 권한이 거부되어 있습니다.\n\nOS 설정에서 Qaid 앱의 알림을 허용해주세요.\n\n[Windows] 설정 → 시스템 → 알림 → Qaid Chat\n[Mac] 시스템 환경설정 → 알림 → Qaid');
+        return;
+      }
+
+      // 권한 미요청 상태면 권한 요청 후 진행
+      if ('Notification' in window && Notification.permission === 'default') {
+        try {
+          const result = await Notification.requestPermission();
+          if (result !== 'granted') {
+            updateNotifToggleUI();
+            return;
+          }
+        } catch (e) {
+          console.warn('[알림] 권한 요청 실패:', e);
+        }
+      }
+
+      // 토글
+      notificationsEnabled = !notificationsEnabled;
+      localStorage.setItem('qaid_notifications_enabled', String(notificationsEnabled));
+      updateNotifToggleUI();
+    });
+
+    // 페이지 로드 시 UI 초기화
+    updateNotifToggleUI();
+
+    // 알림 권한 자동 요청 (페이지 로드 후 2초)
+    async function requestNotificationPermission() {
+      if (notificationPermissionRequested) return;
+      if (!('Notification' in window)) return;
+
+      notificationPermissionRequested = true;
+
+      if (Notification.permission === 'default') {
+        try {
+          await Notification.requestPermission();
+          updateNotifToggleUI(); // 권한 결과 반영
+        } catch (e) {
+          console.warn('[알림] 권한 요청 실패:', e);
+        }
+      }
+    }
+
+    // 시스템 알림 표시 (조건 확인 후)
+    function showSystemNotification(senderName, senderRole) {
+      // ===== 표시하지 말아야 할 경우들 =====
+
+      // 0. 사용자가 알림 OFF로 설정함 ⭐ NEW
+      if (!notificationsEnabled) return;
+
+      // 1. 본인이 보낸 메시지는 무시
+      if (senderName === myName && senderRole === myRole) return;
+
+      // 2. 채팅창이 포커스 상태이고 PIP 모드가 아니면 알림 안 띄움
+      //    (사용자가 이미 채팅을 보고 있음)
+      //    단, isInPipMode면 PIP 창이라 메인 채팅이 안 보이는 상태 → 알림 띄움
+      const isMainWindowFocused = document.hasFocus() &&
+                                   document.visibilityState === 'visible' &&
+                                   !isInPipMode;
+      if (isMainWindowFocused) return;
+
+      // 3. 알림 권한 없으면 무시
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+      // ===== 알림 텍스트 구성 =====
+      const roleText = senderRole === 'repair' ? '수리실' : '고객대기실';
+      const title = 'Qaid 채팅';
+      const body = `${roleText} ${senderName}님이 메시지를 보냈습니다`;
+
+      // ===== Electron 환경: 네이티브 알림 사용 (소리 없음) =====
+      if (window.electronAPI && window.electronAPI.showNotification) {
+        try {
+          window.electronAPI.showNotification({ title, body, silent: true });
+          return;
+        } catch (e) {
+          console.warn('[알림] Electron 알림 실패, 브라우저로 fallback:', e);
+        }
+      }
+
+      // ===== 브라우저 환경: Notification API 사용 =====
+      try {
+        if (activeNotification) {
+          try { activeNotification.close(); } catch (_) {}
+        }
+
+        activeNotification = new Notification(title, {
+          body: body,
+          silent: true,
+          tag: 'qaid-message',
+          requireInteraction: false
+        });
+
+        activeNotification.onclick = () => {
+          window.focus();
+          if (activeNotification) {
+            activeNotification.close();
+            activeNotification = null;
+          }
+        };
+
+        activeNotification.onclose = () => {
+          activeNotification = null;
+        };
+      } catch (e) {
+        console.warn('[알림] 브라우저 알림 생성 실패:', e);
+      }
+    }
+
+    // 페이지 로드 시 권한 미리 요청
+    setTimeout(() => {
+      requestNotificationPermission();
+    }, 2000);
 
     // 음성 재생 (브라우저 기본 TTS)
     function speakMessage(name, text) {
