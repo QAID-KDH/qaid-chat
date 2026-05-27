@@ -1556,9 +1556,13 @@
       <header class="chat-header">
         <div class="chat-header-title" id="chatHeaderTitle">전체 채팅방</div>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <button id="voiceToggle" class="voice-toggle" title="음성 읽기 켜기/끄기">
+            <span id="voiceIcon">🔊</span>
+            <span id="voiceLabel">음성 ON</span>
+          </button>
           <button class="notif-toggle-btn" id="notifToggleBtn" type="button" title="시스템 알림 켜기/끄기">
             <span id="notifIcon">🔔</span>
-            <span id="notifLabel">알림</span>
+            <span id="notifLabel">알림 ON</span>
           </button>
           <button class="memo-btn" id="openMemoBtn" type="button" title="수리메모 작성">
             <span>🔧</span>
@@ -1567,10 +1571,6 @@
           <button class="memo-btn" id="openEscalationBtn" type="button" title="에스컬레이션 작성">
             <span>⚠️</span>
             <span>에스컬레이션</span>
-          </button>
-          <button id="voiceToggle" class="voice-toggle" title="음성 읽기 켜기/끄기">
-            <span id="voiceIcon">🔊</span>
-            <span id="voiceLabel">음성 ON</span>
           </button>
           <div class="connection-status">
             <span class="status-dot" id="statusDot"></span>
@@ -2984,12 +2984,12 @@ GSX Ship-to ( 배송 계정 ) :
       if (notificationsEnabled) {
         notifToggleBtn.classList.remove('off');
         notifIcon.textContent = '🔔';
-        notifLabel.textContent = '알림';
+        notifLabel.textContent = '알림 ON';
         notifToggleBtn.title = '시스템 알림 끄기 (현재: 켜짐)';
       } else {
         notifToggleBtn.classList.add('off');
         notifIcon.textContent = '🔕';
-        notifLabel.textContent = '알림 끔';
+        notifLabel.textContent = '알림 OFF';
         notifToggleBtn.title = '시스템 알림 켜기 (현재: 꺼짐)';
       }
 
