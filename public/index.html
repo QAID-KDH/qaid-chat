@@ -2038,40 +2038,89 @@ GSX Ship-to ( 배송 계정 ) :
       escalationText.value = savedEscalation !== null ? savedEscalation : ESCALATION_TEMPLATE;
     }
 
-    // ==================== 옆에 띄우기 (PIP) 기능 ====================
-    // Document Picture-in-Picture API 사용
-    // 브라우저/Electron의 Chromium 자체 기능 활용 → 별도 빌드 불필요
-    // 미니창은 모든 앱 위에 자동으로 떠있음 (OS 수준)
+    // ==================== 옆에 띄우기 (PIP) ====================
+    // 2가지 방식 지원:
+    // 1. Electron 환경: window.electronAPI 사용 (별도 BrowserWindow) - 안정적
+    // 2. 브라우저 환경: Document Picture-in-Picture API - Chrome/Edge 116+
+    // Electron이 우선, 없으면 브라우저 PIP API 사용
 
-    let pipWindow = null;          // 현재 열린 PIP 창 참조
+    let pipWindow = null;          // 브라우저 PIP 창 참조 (Electron에서는 사용 안 함)
     const PIP_DEFAULT_WIDTH = 320;
     const PIP_DEFAULT_HEIGHT = 500;
 
     const memoPopoutBtn = document.getElementById('memoPopoutBtn');
 
-    // PIP 지원 여부 확인 (Chrome 116+, Edge 116+, Electron 27+)
-    const isPipSupported = 'documentPictureInPicture' in window;
+    // Electron 환경 감지 (preload.js에서 노출한 API 확인)
+    const isElectronApp = !!(window.electronAPI && window.electronAPI.isElectron);
 
-    // 지원하는 환경에서만 "옆에 띄우기" 버튼 표시
-    if (isPipSupported) {
+    // 브라우저 PIP API 지원 여부 (Electron이 없을 때만 fallback)
+    const isBrowserPipSupported = 'documentPictureInPicture' in window;
+
+    // 둘 중 하나라도 지원하면 옆에 띄우기 가능
+    const isPipAvailable = isElectronApp || isBrowserPipSupported;
+
+    if (isPipAvailable) {
       document.body.classList.add('pip-supported');
     }
 
-    // 옆에 띄우기 → PIP 창 열기
+    // 현재 페이지가 PIP 창인지 확인 (Electron 자체 창의 경우)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isInPipMode = urlParams.get('pipMode') === '1';
+    const pipInitialTab = urlParams.get('tab') || 'repair';
+
+    // ===== Electron 자체 창에서 실행 중인 경우 =====
+    // 메인 창과 별도의 BrowserWindow로 열려있음
+    // → 채팅 UI 숨기고 메모 패널만 전체 화면으로 표시
+    if (isInPipMode && isElectronApp) {
+      document.body.classList.add('pip-mode');
+      // 로딩 후 자동으로 사이드바 열기
+      window.addEventListener('load', () => {
+        // 약간의 지연 (DOM 준비 시간)
+        setTimeout(() => {
+          openMemoPanel(pipInitialTab);
+        }, 300);
+      });
+
+      // 메인 창에서 탭 변경 요청 받기
+      if (window.electronAPI.onPipSetTab) {
+        window.electronAPI.onPipSetTab((tab) => {
+          switchMemoTab(tab);
+        });
+      }
+    }
+
+    // 옆에 띄우기 버튼 클릭 → 분기 처리
     async function openInPipWindow() {
-      if (!isPipSupported) {
-        alert('이 기능은 Chrome/Edge 116+ 또는 최신 Electron 앱에서만 사용 가능합니다.');
+      // ===== Electron 환경: 자체 BrowserWindow 사용 =====
+      if (isElectronApp) {
+        try {
+          const result = await window.electronAPI.openPipWindow(currentMemoTab);
+          if (result.success) {
+            // 메인 창의 사이드바 닫기
+            closeMemoPanel();
+          } else {
+            alert('미니창을 띄우지 못했습니다.\n\n' + (result.error || '잠시 후 다시 시도해주세요.'));
+          }
+        } catch (err) {
+          console.error('Electron PIP 창 생성 실패:', err);
+          alert('미니창을 띄우지 못했습니다.\n\n' + (err.message || '알 수 없음'));
+        }
         return;
       }
 
-      // 이미 PIP 창이 열려있다면 포커스만
+      // ===== 브라우저 환경: Document PIP API 사용 (fallback) =====
+      if (!isBrowserPipSupported) {
+        alert('이 기능은 Chrome/Edge 116+ 또는 Qaid 앱에서 사용 가능합니다.');
+        return;
+      }
+
+      // 이미 열려있다면 포커스만
       if (pipWindow && !pipWindow.closed) {
         pipWindow.focus();
         return;
       }
 
       try {
-        // PIP 창 생성 요청 (사용자가 마지막에 사용한 크기 기억)
         const savedWidth = parseInt(localStorage.getItem('qaid_pip_width'), 10) || PIP_DEFAULT_WIDTH;
         const savedHeight = parseInt(localStorage.getItem('qaid_pip_height'), 10) || PIP_DEFAULT_HEIGHT;
 
@@ -2080,7 +2129,7 @@ GSX Ship-to ( 배송 계정 ) :
           height: savedHeight
         });
 
-        // 메인 페이지의 CSS를 PIP 창에도 복사 (스타일 유지)
+        // 메인 페이지의 CSS를 PIP 창에도 복사
         [...document.styleSheets].forEach(sheet => {
           try {
             const cssRules = [...sheet.cssRules].map(rule => rule.cssText).join('');
@@ -2088,7 +2137,6 @@ GSX Ship-to ( 배송 계정 ) :
             style.textContent = cssRules;
             pipWindow.document.head.appendChild(style);
           } catch (e) {
-            // 외부 stylesheet (CORS) 는 link 태그로 복사
             const link = pipWindow.document.createElement('link');
             link.rel = 'stylesheet';
             link.href = sheet.href;
@@ -2096,32 +2144,23 @@ GSX Ship-to ( 배송 계정 ) :
           }
         });
 
-        // PIP 모드 클래스 추가 (CSS에서 레이아웃 조정)
         pipWindow.document.body.classList.add('pip-mode');
-
-        // 메모 패널을 PIP 창으로 이동
         pipWindow.document.body.appendChild(memoPanel);
 
-        // 사이드바 백드롭 닫기 (이제 사이드바 모드 아님)
         memoBackdrop.classList.remove('active');
-        // 헤더 버튼 상태 갱신
         openMemoBtn.classList.remove('active');
         openEscalationBtn.classList.remove('active');
-        // 메모 패널은 PIP 안에서 항상 활성 상태
         memoPanel.classList.add('active');
 
-        // PIP 창 크기 변경 시 저장
         pipWindow.addEventListener('resize', () => {
           localStorage.setItem('qaid_pip_width', pipWindow.innerWidth);
           localStorage.setItem('qaid_pip_height', pipWindow.innerHeight);
         });
 
-        // PIP 창 닫힐 때 처리 (X 버튼 또는 어떤 이유로든)
         pipWindow.addEventListener('pagehide', () => {
           returnFromPip();
         });
 
-        // PIP 창 내부에서 ESC 키로 닫기 가능
         pipWindow.addEventListener('keydown', (e) => {
           if (e.key === 'Escape') {
             pipWindow.close();
@@ -2130,50 +2169,59 @@ GSX Ship-to ( 배송 계정 ) :
 
       } catch (err) {
         console.error('PIP 창 생성 실패:', err);
-        console.error('에러 이름:', err.name);
-        console.error('에러 메시지:', err.message);
-
-        // 사용자에게 더 구체적인 안내
         let userMessage = '미니창을 띄우지 못했습니다.\n\n';
-        if (err.name === 'NotAllowedError' || err.message?.includes('permission')) {
-          userMessage += '브라우저/앱에서 PIP 권한이 거부되었습니다.\n앱을 다시 시작해보세요.';
+        if (err.name === 'NotAllowedError') {
+          userMessage += '브라우저에서 PIP 권한이 거부되었습니다.';
         } else if (err.name === 'InvalidStateError') {
           userMessage += '현재 상태에서 미니창을 띄울 수 없습니다.\n잠시 후 다시 시도해주세요.';
         } else {
-          userMessage += '잠시 후 다시 시도해주세요.\n\n오류: ' + (err.message || err.name || '알 수 없음');
+          userMessage += err.message || '알 수 없는 오류';
         }
         alert(userMessage);
         pipWindow = null;
       }
     }
 
-    // PIP 창에서 원래 사이드바로 복귀
+    // 브라우저 PIP 창에서 원래 사이드바로 복귀 (Electron에서는 사용 안 함)
     function returnFromPip() {
       if (!memoPanel) return;
+      // PIP 모드면 (Electron 자체 창) 그대로 둠
+      if (isInPipMode) return;
 
-      // 메모 패널을 다시 원래 위치로 이동
       document.body.appendChild(memoPanel);
-
-      // PIP 모드 클래스 제거
       document.body.classList.remove('pip-mode');
       memoPanel.classList.remove('active');
-
       pipWindow = null;
     }
 
-    // 헤더의 [⚠️ 에스컬레이션] 클릭 시 PIP 창이 열려있으면 그 안에서 탭 전환
+    // Electron PIP 창이 닫혔을 때 알림 받기 (메인 창에서만)
+    if (isElectronApp && !isInPipMode && window.electronAPI.onPipClosed) {
+      window.electronAPI.onPipClosed(() => {
+        // 메인 창에서는 별도 처리 없음 (사이드바는 이미 닫혀있음)
+        console.log('[Qaid] PIP 창이 닫혔습니다');
+      });
+    }
+
+    // 헤더의 [🔧 수리메모] / [⚠️ 에스컬레이션] 클릭 시 동작
     function handleTabSwitchFromHeader(tab) {
+      // Electron PIP 창 안에 있는 경우: 탭 전환만
+      if (isInPipMode) {
+        switchMemoTab(tab);
+        return;
+      }
+
+      // 브라우저 PIP 창이 열려있는 경우: 그 안에서 탭 전환
       if (pipWindow && !pipWindow.closed) {
-        // PIP 창 내부에서 탭 전환만 수행 (이미 메모 패널이 PIP 안에 있음)
         switchMemoTab(tab);
         pipWindow.focus();
+        return;
+      }
+
+      // 일반 사이드바 모드
+      if (memoPanel.classList.contains('active') && currentMemoTab === tab) {
+        closeMemoPanel();
       } else {
-        // 일반 사이드바 모드
-        if (memoPanel.classList.contains('active') && currentMemoTab === tab) {
-          closeMemoPanel();
-        } else {
-          openMemoPanel(tab);
-        }
+        openMemoPanel(tab);
       }
     }
 
@@ -2186,13 +2234,20 @@ GSX Ship-to ( 배송 계정 ) :
       handleTabSwitchFromHeader('escalation');
     });
 
-    // 닫기 버튼: PIP 모드면 PIP 닫기, 아니면 사이드바 닫기
+    // 닫기 버튼: 환경별로 다르게 처리
     memoPanelCloseBtn.addEventListener('click', () => {
-      if (pipWindow && !pipWindow.closed) {
-        pipWindow.close(); // pagehide 이벤트가 returnFromPip 호출
-      } else {
-        closeMemoPanel();
+      // Electron PIP 창 안에 있는 경우: 창 자체를 닫기 (electronAPI 호출)
+      if (isInPipMode && isElectronApp) {
+        window.electronAPI.closePipWindow();
+        return;
       }
+      // 브라우저 PIP 창이 열려있는 경우: 그 창 닫기
+      if (pipWindow && !pipWindow.closed) {
+        pipWindow.close();
+        return;
+      }
+      // 일반 사이드바 모드
+      closeMemoPanel();
     });
 
     memoBackdrop.addEventListener('click', closeMemoPanel);
@@ -2209,9 +2264,18 @@ GSX Ship-to ( 배송 계정 ) :
     memoClearBtn.addEventListener('click', clearMemoText);
     memoPopoutBtn.addEventListener('click', openInPipWindow);
 
-    // ESC 키로 사이드바 닫기 (PIP 모드는 PIP 자체 ESC 처리)
+    // ESC 키: 환경별 처리
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && memoPanel.classList.contains('active') && !pipWindow) {
+      if (e.key !== 'Escape') return;
+
+      // Electron PIP 창 내부 → 창 닫기
+      if (isInPipMode && isElectronApp) {
+        window.electronAPI.closePipWindow();
+        return;
+      }
+
+      // 일반 사이드바 모드 → 사이드바 닫기
+      if (memoPanel.classList.contains('active') && !pipWindow) {
         closeMemoPanel();
       }
     });
