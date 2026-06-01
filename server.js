@@ -359,6 +359,53 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', centers: stats });
 });
 
+// ==================== 매일 새벽 4시 자동 초기화 ====================
+// 채팅 메시지만 비우고, 센터 설정/비밀번호/기능은 그대로 유지합니다.
+// 매일 깨끗한 상태로 새 하루를 시작하기 위한 기능입니다.
+
+let lastResetDate = null; // 같은 날 중복 초기화 방지
+
+function clearAllChats() {
+  let clearedCenters = 0;
+
+  Object.keys(centerData).forEach(centerName => {
+    const data = centerData[centerName];
+    // 채팅 기록만 비움 (users 접속 정보는 유지)
+    data.messageHistory = [];
+    clearedCenters++;
+
+    // 현재 접속 중인 사용자들에게 빈 채팅 기록 전송 (화면 갱신)
+    io.to(centerName).emit('history', []);
+  });
+
+  const now = new Date();
+  console.log(`🧹 [자동 초기화] ${now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} - ${clearedCenters}개 센터 채팅 초기화 완료`);
+}
+
+// 1분마다 한국 시간을 확인하여 오후 8시 30분에 초기화
+function checkAutoReset() {
+  // 한국 시간(KST, UTC+9) 계산
+  const now = new Date();
+  const kstString = now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
+  const kst = new Date(kstString);
+
+  const hour = kst.getHours();
+  const minute = kst.getMinutes();
+  const today = `${kst.getFullYear()}-${kst.getMonth() + 1}-${kst.getDate()}`;
+
+  // 오후 8시 30분(20:30~20:34)이고, 오늘 아직 초기화 안 했으면 실행
+  // (1분마다 체크하므로 20시 30분에 확실히 걸림)
+  if (hour === 20 && minute >= 30 && minute < 35 && lastResetDate !== today) {
+    lastResetDate = today;
+    clearAllChats();
+  }
+}
+
+// 60초(1분)마다 시간 체크
+setInterval(checkAutoReset, 60 * 1000);
+
+console.log('⏰ 자동 초기화 설정됨: 매일 오후 8시 30분 (한국 시간) 채팅 초기화');
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 Qaid 채팅 서버 실행 중: http://localhost:${PORT}`);
