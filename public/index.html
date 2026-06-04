@@ -754,6 +754,77 @@
     }
     .message.deleted .message-image { display: none; }
 
+    /* 문서 파일 메시지 (엑셀/워드/PDF 등) */
+    .message-file {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface-2, #F4F6F9);
+      border: 1px solid var(--border, #E5E8EC);
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      min-width: 200px;
+      max-width: 280px;
+      transition: background 0.15s;
+    }
+    .message-file:hover { background: var(--brand-light, #E8F2FC); }
+    .message-file-icon {
+      flex-shrink: 0;
+      width: 40px; height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .file-icon-xls { background: #1D6F42; }
+    .file-icon-doc { background: #2B579A; }
+    .file-icon-pdf { background: #D93831; }
+    .file-icon-hwp { background: #0FA8E0; }
+    .file-icon-ppt { background: #C13B1B; }
+    .file-icon-zip { background: #8E7B4C; }
+    .file-icon-etc { background: #6B7280; }
+    .message-file-info { flex: 1; min-width: 0; }
+    .message-file-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .message-file-size {
+      font-size: 11px;
+      color: var(--text-secondary, #5A6373);
+      margin-top: 2px;
+    }
+    .message.deleted .message-file { display: none; }
+
+    /* 이미지/파일 메시지의 삭제 버튼 */
+    .message .media-delete-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+    }
+    .message:hover .media-delete-btn { display: flex; }
+    .message .media-delete-btn:hover { background: rgba(217,56,49,0.9); }
+
     /* 드래그 오버 표시 */
     .main.drag-over::after {
       content: '📎 여기에 놓으면 사진이 전송됩니다';
@@ -1724,7 +1795,7 @@
 
         <div class="input-wrapper" id="inputWrapper">
           <!-- 숨겨진 파일 선택 input -->
-          <input type="file" id="fileInput" accept="image/*" style="display:none;" />
+          <input type="file" id="fileInput" accept="image/*,.pdf,.xls,.xlsx,.doc,.docx,.ppt,.pptx,.hwp,.hwpx,.txt,.csv,.zip" style="display:none;" />
           <!-- 첨부 버튼 -->
           <button class="attach-btn" id="attachBtn" type="button" title="사진 첨부">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2769,15 +2840,24 @@ GSX Ship-to ( 배송 계정 ) :
         if (messageDiv) {
           messageDiv.classList.add('deleted');
           const bubble = messageDiv.querySelector('.message-bubble');
-          if (bubble) bubble.textContent = '⊘ 삭제된 메시지입니다.';
+          if (bubble) {
+            // 이미지/파일 메시지인지 확인
+            const hadImage = bubble.querySelector('.message-image');
+            const hadFile = bubble.querySelector('.message-file');
+            if (hadImage) bubble.textContent = '⊘ 삭제된 사진입니다.';
+            else if (hadFile) bubble.textContent = '⊘ 삭제된 파일입니다.';
+            else bubble.textContent = '⊘ 삭제된 메시지입니다.';
+          }
           // 확인 체크박스/정보 제거
           const ackEl = messageDiv.querySelector('.ack-container');
           if (ackEl) ackEl.remove();
           const ackInfo = messageDiv.querySelector('.ack-info');
           if (ackInfo) ackInfo.remove();
-          // 삭제 버튼 제거
+          // 삭제 버튼 제거 (텍스트용 + 미디어용)
           const deleteBtn = messageDiv.querySelector('.delete-btn');
           if (deleteBtn) deleteBtn.remove();
+          const mediaDeleteBtn = messageDiv.querySelector('.media-delete-btn');
+          if (mediaDeleteBtn) mediaDeleteBtn.remove();
         }
       });
 
@@ -2830,33 +2910,85 @@ GSX Ship-to ( 배송 계정 ) :
       if (msg.type === 'system') {
         div.className = 'message system';
         div.innerHTML = `<div class="message-bubble">${escapeHtml(msg.text)}</div>`;
-      } else if (msg.type === 'image') {
-        // ===== 이미지 메시지 =====
+      } else if (msg.type === 'image' || msg.type === 'file') {
+        // ===== 이미지/파일 메시지 =====
         const isOwn = msg.name === myName && msg.role === myRole;
-        div.className = `message ${isOwn ? 'own' : 'other'}`;
+        const isDeleted = msg.deleted === true;
+        div.className = `message ${isOwn ? 'own' : 'other'}${isDeleted ? ' deleted' : ''}`;
         if (msg.id) div.dataset.messageId = msg.id;
         const roleIcon = msg.role === 'repair' ? '🔧' : '💬';
         const roleLabel = msg.role === 'repair' ? '수리실' : '고객대기실';
-        const safeUrl = escapeHtml(msg.url);
         const caption = msg.caption ? `<div class="message-image-caption">${escapeHtml(msg.caption)}</div>` : '';
 
-        let html = `
+        // 삭제된 경우
+        if (isDeleted) {
+          div.innerHTML = `
+            <div class="message-meta">
+              <span class="message-name ${msg.role}">${roleIcon} ${escapeHtml(msg.name)} · ${roleLabel}</span>
+              <span>${time}</span>
+            </div>
+            <div class="message-bubble">⊘ 삭제된 ${msg.type === 'image' ? '사진' : '파일'}입니다.</div>
+          `;
+          messagesEl.appendChild(div);
+          return;
+        }
+
+        let mediaHtml = '';
+        if (msg.type === 'image') {
+          const safeUrl = escapeHtml(msg.url);
+          mediaHtml = `<img class="message-image" src="${safeUrl}" alt="전송된 사진" loading="lazy"
+                 data-full-url="${safeUrl}" data-file-name="${escapeHtml(msg.fileName || 'image')}" />`;
+        } else {
+          // 문서 파일: 아이콘 + 파일명 + 크기
+          const ext = (msg.fileName || '').split('.').pop().toLowerCase();
+          let iconClass = 'file-icon-etc', iconText = ext.toUpperCase().slice(0, 4);
+          if (['xls','xlsx','csv'].includes(ext)) { iconClass = 'file-icon-xls'; iconText = 'XLS'; }
+          else if (['doc','docx'].includes(ext)) { iconClass = 'file-icon-doc'; iconText = 'DOC'; }
+          else if (ext === 'pdf') { iconClass = 'file-icon-pdf'; iconText = 'PDF'; }
+          else if (['hwp','hwpx'].includes(ext)) { iconClass = 'file-icon-hwp'; iconText = 'HWP'; }
+          else if (['ppt','pptx'].includes(ext)) { iconClass = 'file-icon-ppt'; iconText = 'PPT'; }
+          else if (['zip','rar','7z'].includes(ext)) { iconClass = 'file-icon-zip'; iconText = 'ZIP'; }
+          const sizeStr = formatFileSize(msg.fileSize || 0);
+          mediaHtml = `
+            <a class="message-file" href="${escapeHtml(msg.url)}" target="_blank" rel="noopener" download="${escapeHtml(msg.fileName || 'file')}">
+              <span class="message-file-icon ${iconClass}">${iconText}</span>
+              <span class="message-file-info">
+                <span class="message-file-name">${escapeHtml(msg.fileName || '파일')}</span>
+                ${sizeStr ? `<span class="message-file-size">${sizeStr}</span>` : ''}
+              </span>
+            </a>`;
+        }
+
+        div.innerHTML = `
           <div class="message-meta">
             <span class="message-name ${msg.role}">${roleIcon} ${escapeHtml(msg.name)} · ${roleLabel}</span>
             <span>${time}</span>
           </div>
           <div class="message-bubble">
-            <img class="message-image" src="${safeUrl}" alt="전송된 사진" loading="lazy"
-                 data-full-url="${safeUrl}" data-file-name="${escapeHtml(msg.fileName || 'image')}" />
+            ${mediaHtml}
             ${caption}
           </div>
         `;
-        div.innerHTML = html;
 
-        // 썸네일 클릭 → 크게 보기
-        const imgEl = div.querySelector('.message-image');
-        if (imgEl) {
-          imgEl.addEventListener('click', () => openLightbox(msg.url, msg.fileName));
+        // 이미지 클릭 → 크게 보기
+        if (msg.type === 'image') {
+          const imgEl = div.querySelector('.message-image');
+          if (imgEl) imgEl.addEventListener('click', () => openLightbox(msg.url, msg.fileName));
+        }
+
+        // 본인이 보낸 파일이면 삭제 버튼 추가
+        if (isOwn && msg.id) {
+          const delBtn = document.createElement('button');
+          delBtn.className = 'media-delete-btn';
+          delBtn.textContent = '✕';
+          delBtn.title = '삭제';
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm('이 ' + (msg.type === 'image' ? '사진을' : '파일을') + ' 삭제할까요?\n(상대방 화면에서도 삭제됩니다)')) {
+              socket.emit('delete', msg.id);
+            }
+          });
+          div.appendChild(delBtn);
         }
 
         messagesEl.appendChild(div);
@@ -3054,24 +3186,32 @@ GSX Ship-to ( 배송 계정 ) :
 
     // 이미지 파일 검증
     function validateFile(file) {
-      if (!file.type.startsWith('image/')) {
-        alert('사진 파일만 전송할 수 있습니다.');
-        return false;
-      }
       if (file.size > MAX_FILE_SIZE) {
-        alert('파일이 너무 큽니다. 10MB 이하의 사진만 전송할 수 있습니다.');
+        alert('파일이 너무 큽니다. 10MB 이하의 파일만 전송할 수 있습니다.');
         return false;
       }
       return true;
     }
 
-    // Cloudinary 업로드 후 채팅으로 전송
+    // 파일 크기 보기 좋게 변환
+    function formatFileSize(bytes) {
+      if (!bytes || bytes <= 0) return '';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // Cloudinary 업로드 후 채팅으로 전송 (이미지 + 문서 파일)
     async function uploadAndSend(file) {
       if (!validateFile(file)) return;
       if (!socket) { alert('연결이 끊어졌습니다. 새로고침 후 다시 시도해주세요.'); return; }
 
+      const isImage = file.type.startsWith('image/');
+      // 이미지는 image, 그 외 문서는 raw(원본 파일)로 업로드
+      const resourceType = isImage ? 'image' : 'raw';
+
       uploadProgress.classList.add('show');
-      uploadProgressText.textContent = '사진 업로드 중...';
+      uploadProgressText.textContent = (isImage ? '사진' : '파일') + ' 업로드 중...';
 
       try {
         const formData = new FormData();
@@ -3079,25 +3219,27 @@ GSX Ship-to ( 배송 계정 ) :
         formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
 
         const res = await fetch(
-          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
           { method: 'POST', body: formData }
         );
 
         if (!res.ok) throw new Error('업로드 실패 (' + res.status + ')');
         const data = await res.json();
-        if (!data.secure_url) throw new Error('이미지 주소를 받지 못했습니다.');
+        if (!data.secure_url) throw new Error('파일 주소를 받지 못했습니다.');
 
-        // 채팅으로 이미지 메시지 전송
+        // 채팅으로 메시지 전송
         socket.emit('message', {
-          type: 'image',
+          type: isImage ? 'image' : 'file',
           url: data.secure_url,
           publicId: data.public_id || null,
-          fileName: file.name || 'image',
-          fileType: file.type || 'image'
+          resourceType: resourceType,
+          fileName: file.name || (isImage ? 'image' : 'file'),
+          fileType: file.type || '',
+          fileSize: file.size || 0
         });
       } catch (err) {
-        console.error('[사진 업로드] 실패:', err);
-        alert('사진 전송에 실패했습니다.\n다시 시도해주세요.\n\n(' + err.message + ')');
+        console.error('[업로드] 실패:', err);
+        alert('파일 전송에 실패했습니다.\n다시 시도해주세요.\n\n(' + err.message + ')');
       } finally {
         uploadProgress.classList.remove('show');
       }
