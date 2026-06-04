@@ -878,6 +878,87 @@
     .lightbox-btn.primary { background: var(--brand, #327CDB); }
     .lightbox-btn.primary:hover { background: var(--brand-dark, #1E5BAA); }
 
+    /* QR 코드 팝업 */
+    .qr-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+    .qr-modal.show { display: flex; }
+    .qr-modal-box {
+      background: #fff;
+      border-radius: 20px;
+      padding: 28px 32px 24px;
+      width: 360px;
+      max-width: 90vw;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .qr-modal-close {
+      position: absolute;
+      top: 16px; right: 16px;
+      width: 32px; height: 32px;
+      border: none; background: var(--surface-2, #F4F6F9);
+      border-radius: 50%;
+      cursor: pointer; font-size: 16px;
+      color: var(--text-secondary, #5A6373);
+    }
+    .qr-modal-close:hover { background: var(--border, #E5E8EC); }
+    .qr-modal-title {
+      font-size: 19px; font-weight: 700;
+      color: var(--text, #2D3748);
+      margin-bottom: 6px;
+    }
+    .qr-modal-desc {
+      font-size: 13px;
+      color: var(--text-secondary, #5A6373);
+      margin-bottom: 20px;
+    }
+    .qr-code-wrap {
+      width: 200px; height: 200px;
+      margin: 0 auto 20px;
+      display: flex; align-items: center; justify-content: center;
+      background: #fff;
+      border: 1px solid var(--border, #E5E8EC);
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .qr-code-wrap img, .qr-code-wrap canvas { display: block; }
+    .qr-loading { font-size: 13px; color: var(--text-dim, #9098A4); }
+    .qr-modal-steps {
+      text-align: left;
+      background: var(--brand-50, #F4F9FE);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+    .qr-step {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px;
+      color: var(--text, #2D3748);
+      padding: 4px 0;
+    }
+    .qr-step span {
+      flex-shrink: 0;
+      width: 22px; height: 22px;
+      background: var(--brand, #327CDB);
+      color: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+    .qr-modal-timer {
+      font-size: 13px;
+      color: var(--text-secondary, #5A6373);
+      font-weight: 600;
+    }
+    .qr-modal-timer.expired { color: var(--danger, #EF4444); }
+
 
     /* ==================== 음성 모드 토글 ==================== */
     .voice-mode-toggle {
@@ -1769,6 +1850,10 @@
             <span>⚠️</span>
             <span>에스컬레이션</span>
           </button>
+          <button class="memo-btn" id="openQrBtn" type="button" title="폰으로 사진 올리기">
+            <span>📱</span>
+            <span>QR</span>
+          </button>
           <div class="connection-status">
             <span class="status-dot" id="statusDot"></span>
             <span id="statusText">연결됨</span>
@@ -1828,7 +1913,26 @@
     </div>
   </div>
 
+  <!-- QR 코드 팝업 -->
+  <div class="qr-modal" id="qrModal">
+    <div class="qr-modal-box">
+      <button class="qr-modal-close" id="qrModalClose">✕</button>
+      <div class="qr-modal-title">📱 폰으로 사진 올리기</div>
+      <div class="qr-modal-desc">핸드폰 카메라로 아래 QR코드를 스캔하세요</div>
+      <div class="qr-code-wrap" id="qrCodeWrap">
+        <div class="qr-loading">QR 생성 중...</div>
+      </div>
+      <div class="qr-modal-steps">
+        <div class="qr-step"><span>1</span> 핸드폰 카메라 앱 열기</div>
+        <div class="qr-step"><span>2</span> QR코드 비추기 → 링크 터치</div>
+        <div class="qr-step"><span>3</span> 사진 찍어서 전송</div>
+      </div>
+      <div class="qr-modal-timer" id="qrModalTimer">유효 시간: 5:00</div>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script>
     let socket = null;
     let myName = '';
@@ -2564,6 +2668,133 @@ GSX Ship-to ( 배송 계정 ) :
       }
     }
     loadCenters();
+
+    // ==================== QR 모바일 사진 업로드 모드 ====================
+    // 핸드폰에서 QR 스캔으로 ?qr=토큰 으로 접속한 경우
+    const qrTokenFromUrl = urlParams.get('qr');
+    if (qrTokenFromUrl) {
+      enterQrUploadMode(qrTokenFromUrl);
+    }
+
+    async function enterQrUploadMode(token) {
+      try {
+        // 토큰 검증 → 센터 정보 받기
+        const res = await fetch('/api/qr/verify?token=' + encodeURIComponent(token));
+        const data = await res.json();
+
+        if (!data.success || !data.center) {
+          showQrError(data.message || 'QR이 만료되었거나 잘못되었습니다.');
+          return;
+        }
+
+        const center = data.center;
+
+        // 자동 입장 (QR 토큰으로 인증, 비밀번호 불필요)
+        // 이름은 "QR", 역할은 고객대기실(service)로 자동 설정
+        myCenter = center;
+        myName = 'QR';
+        myRole = 'service';
+        myPassword = ''; // QR 모드는 비번 없음
+
+        // 채팅 화면 대신 "사진 전용 업로드 화면" 표시
+        showQrUploadScreen(center, token);
+      } catch (err) {
+        console.error('[QR 모드] 진입 실패:', err);
+        showQrError('연결에 실패했습니다. 다시 시도해주세요.');
+      }
+    }
+
+    function showQrError(msg) {
+      document.body.innerHTML = `
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;font-family:Pretendard,sans-serif;padding:24px;text-align:center;background:#F4F6F9;">
+          <div style="font-size:48px;">⚠️</div>
+          <div style="font-size:18px;font-weight:700;color:#2D3748;">${msg}</div>
+          <div style="font-size:14px;color:#5A6373;">PC 화면에서 QR코드를 다시 생성해주세요.</div>
+        </div>`;
+    }
+
+    function showQrUploadScreen(center, token) {
+      // socket 연결 + QR 토큰으로 입장
+      socket = io();
+      socket.on('connect', () => {
+        socket.emit('join', { name: myName, role: myRole, center: center, qrToken: token });
+      });
+      socket.on('error', (msg) => {
+        showQrError(msg || '입장에 실패했습니다.');
+      });
+
+      // 사진 전용 업로드 화면 렌더링
+      document.body.innerHTML = `
+        <div style="min-height:100vh;display:flex;flex-direction:column;font-family:Pretendard,sans-serif;background:#fff;">
+          <div style="background:#327CDB;color:#fff;padding:18px 20px;text-align:center;">
+            <div style="font-size:17px;font-weight:700;">📷 ${center} 사진 전송</div>
+            <div style="font-size:12px;opacity:0.9;margin-top:2px;">찍거나 선택한 사진이 PC 채팅으로 전송됩니다</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;">
+            <button id="qrTakePhoto" style="width:100%;max-width:300px;padding:20px;font-size:17px;font-weight:700;color:#fff;background:#327CDB;border:none;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
+              📷 사진 찍기
+            </button>
+            <button id="qrPickPhoto" style="width:100%;max-width:300px;padding:20px;font-size:17px;font-weight:700;color:#327CDB;background:#E8F2FC;border:none;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
+              🖼️ 앨범에서 선택
+            </button>
+            <input type="file" id="qrCameraInput" accept="image/*" capture="environment" style="display:none;" />
+            <input type="file" id="qrAlbumInput" accept="image/*" style="display:none;" />
+            <div id="qrUploadStatus" style="font-size:14px;color:#5A6373;min-height:24px;text-align:center;"></div>
+            <div id="qrSentList" style="width:100%;max-width:300px;display:flex;flex-direction:column;gap:8px;"></div>
+          </div>
+        </div>`;
+
+      const cameraInput = document.getElementById('qrCameraInput');
+      const albumInput = document.getElementById('qrAlbumInput');
+      const statusEl = document.getElementById('qrUploadStatus');
+      const sentList = document.getElementById('qrSentList');
+
+      document.getElementById('qrTakePhoto').addEventListener('click', () => cameraInput.click());
+      document.getElementById('qrPickPhoto').addEventListener('click', () => albumInput.click());
+
+      const handleQrFile = async (file) => {
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { alert('사진만 전송할 수 있습니다.'); return; }
+        if (file.size > 10 * 1024 * 1024) { alert('10MB 이하 사진만 전송할 수 있습니다.'); return; }
+
+        statusEl.textContent = '⏳ 전송 중...';
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('upload_preset', 'qaid_chat');
+          const upRes = await fetch('https://api.cloudinary.com/v1_1/dmgrwqlyt/image/upload', {
+            method: 'POST', body: formData
+          });
+          const upData = await upRes.json();
+          if (!upData.secure_url) throw new Error('업로드 실패');
+
+          socket.emit('message', {
+            type: 'image',
+            url: upData.secure_url,
+            publicId: upData.public_id || null,
+            resourceType: 'image',
+            fileName: file.name || 'photo.jpg',
+            fileType: file.type,
+            fileSize: file.size
+          });
+
+          statusEl.textContent = '✅ 전송 완료!';
+          // 전송 목록에 썸네일 추가
+          const thumb = document.createElement('div');
+          thumb.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px;background:#F4F6F9;border-radius:10px;font-size:13px;color:#2D3748;';
+          thumb.innerHTML = `<img src="${upData.secure_url}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;"> 전송됨 (${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})})`;
+          sentList.prepend(thumb);
+          setTimeout(() => { statusEl.textContent = ''; }, 2000);
+        } catch (err) {
+          console.error('[QR 업로드] 실패:', err);
+          statusEl.textContent = '❌ 전송 실패. 다시 시도해주세요.';
+        }
+      };
+
+      cameraInput.addEventListener('change', (e) => { handleQrFile(e.target.files[0]); cameraInput.value = ''; });
+      albumInput.addEventListener('change', (e) => { handleQrFile(e.target.files[0]); albumInput.value = ''; });
+    }
+    // ==================== QR 모바일 모드 끝 ====================
 
     // 로그인 화면 핸들러
     const nameInput = document.getElementById('nameInput');
@@ -3306,6 +3537,95 @@ GSX Ship-to ( 배송 계정 ) :
       if (e.key === 'Escape' && lightbox.classList.contains('show')) closeLightbox();
     });
     // ==================== 사진 기능 끝 ====================
+
+    // ==================== QR 코드 (폰으로 사진 올리기) ====================
+    const openQrBtn = document.getElementById('openQrBtn');
+    const qrModal = document.getElementById('qrModal');
+    const qrModalClose = document.getElementById('qrModalClose');
+    const qrCodeWrap = document.getElementById('qrCodeWrap');
+    const qrModalTimer = document.getElementById('qrModalTimer');
+    let qrTimerInterval = null;
+
+    if (openQrBtn) {
+      openQrBtn.addEventListener('click', openQrModal);
+    }
+    if (qrModalClose) {
+      qrModalClose.addEventListener('click', closeQrModal);
+    }
+    if (qrModal) {
+      qrModal.addEventListener('click', (e) => {
+        if (e.target === qrModal) closeQrModal();
+      });
+    }
+
+    async function openQrModal() {
+      if (!myCenter || !myPassword) {
+        alert('로그인 후 사용할 수 있습니다.');
+        return;
+      }
+
+      qrModal.classList.add('show');
+      qrCodeWrap.innerHTML = '<div class="qr-loading">QR 생성 중...</div>';
+      qrModalTimer.textContent = '유효 시간: 5:00';
+      qrModalTimer.classList.remove('expired');
+
+      try {
+        // 서버에서 QR 토큰 발급
+        const res = await fetch('/api/qr/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ center: myCenter, password: myPassword })
+        });
+        const data = await res.json();
+        if (!data.success || !data.token) throw new Error(data.message || 'QR 생성 실패');
+
+        // 모바일 업로드 페이지 URL (현재 도메인 + ?qr=토큰)
+        const uploadUrl = `${window.location.origin}/?qr=${data.token}`;
+
+        // QR 코드 생성
+        qrCodeWrap.innerHTML = '';
+        new QRCode(qrCodeWrap, {
+          text: uploadUrl,
+          width: 180,
+          height: 180,
+          colorDark: '#1E5BAA',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+
+        // 5분 카운트다운
+        startQrTimer(data.ttl || (5 * 60 * 1000));
+      } catch (err) {
+        console.error('[QR] 생성 실패:', err);
+        qrCodeWrap.innerHTML = '<div class="qr-loading">QR 생성에 실패했습니다.<br>다시 시도해주세요.</div>';
+      }
+    }
+
+    function startQrTimer(ttl) {
+      if (qrTimerInterval) clearInterval(qrTimerInterval);
+      let remaining = Math.floor(ttl / 1000);
+
+      const update = () => {
+        const min = Math.floor(remaining / 60);
+        const sec = remaining % 60;
+        if (remaining > 0) {
+          qrModalTimer.textContent = `유효 시간: ${min}:${String(sec).padStart(2, '0')}`;
+        } else {
+          qrModalTimer.textContent = 'QR이 만료되었습니다. 닫고 다시 열어주세요.';
+          qrModalTimer.classList.add('expired');
+          clearInterval(qrTimerInterval);
+        }
+        remaining--;
+      };
+      update();
+      qrTimerInterval = setInterval(update, 1000);
+    }
+
+    function closeQrModal() {
+      qrModal.classList.remove('show');
+      if (qrTimerInterval) clearInterval(qrTimerInterval);
+    }
+    // ==================== QR 코드 끝 ====================
 
 
     // 한글 IME(입력기) 조합 상태 추적
