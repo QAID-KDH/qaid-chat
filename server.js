@@ -164,13 +164,13 @@ function getCenterData(centerName) {
 function addToHistory(centerName, message) {
   const data = getCenterData(centerName);
   data.messageHistory.push(message);
-  // 100개 초과 시 가장 오래된 "텍스트/시스템" 메시지부터 제거 (이미지는 보호)
+  // 100개 초과 시 가장 오래된 "텍스트/시스템" 메시지부터 제거 (이미지/파일은 보호)
   if (data.messageHistory.length > MAX_HISTORY) {
-    const idx = data.messageHistory.findIndex(m => m.type !== 'image');
+    const idx = data.messageHistory.findIndex(m => m.type !== 'image' && m.type !== 'file');
     if (idx !== -1) {
-      data.messageHistory.splice(idx, 1); // 가장 오래된 비이미지 메시지 제거
+      data.messageHistory.splice(idx, 1); // 가장 오래된 비파일 메시지 제거
     } else {
-      data.messageHistory.shift(); // 전부 이미지면 맨 앞 제거 (예외적)
+      data.messageHistory.shift(); // 전부 파일이면 맨 앞 제거 (예외적)
     }
   }
 }
@@ -232,30 +232,32 @@ io.on('connection', (socket) => {
     if (!user) return;
 
     // ===== 이미지/파일 메시지 처리 =====
-    if (payload && typeof payload === 'object' && payload.type === 'image') {
+    if (payload && typeof payload === 'object' && (payload.type === 'image' || payload.type === 'file')) {
       // Cloudinary URL 검증 (보안: 우리 클라우드 주소만 허용)
       const url = typeof payload.url === 'string' ? payload.url : '';
       if (!url.startsWith('https://res.cloudinary.com/')) {
-        socket.emit('error', '유효하지 않은 이미지입니다.');
+        socket.emit('error', '유효하지 않은 파일입니다.');
         return;
       }
 
-      const imageMessage = {
+      const fileMessage = {
         id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
-        type: 'image',
+        type: payload.type, // 'image' 또는 'file'
         name: user.name,
         role: user.role,
         url: url,
         publicId: typeof payload.publicId === 'string' ? payload.publicId : null, // 삭제용
-        fileName: typeof payload.fileName === 'string' ? payload.fileName.slice(0, 100) : '',
-        fileType: typeof payload.fileType === 'string' ? payload.fileType : 'image',
+        resourceType: typeof payload.resourceType === 'string' ? payload.resourceType : (payload.type === 'image' ? 'image' : 'raw'), // Cloudinary 삭제용
+        fileName: typeof payload.fileName === 'string' ? payload.fileName.slice(0, 150) : '',
+        fileType: typeof payload.fileType === 'string' ? payload.fileType : '',
+        fileSize: typeof payload.fileSize === 'number' ? payload.fileSize : 0,
         caption: typeof payload.caption === 'string' ? payload.caption.trim().slice(0, 500) : '',
         timestamp: new Date().toISOString()
       };
 
-      addToHistory(center, imageMessage);
-      io.to(center).emit('message', imageMessage);
-      console.log(`[${center}] ${user.name} 이미지 전송`);
+      addToHistory(center, fileMessage);
+      io.to(center).emit('message', fileMessage);
+      console.log(`[${center}] ${user.name} ${payload.type === 'image' ? '이미지' : '파일'} 전송: ${fileMessage.fileName}`);
       return;
     }
 
@@ -339,8 +341,15 @@ io.on('connection', (socket) => {
     // 메시지를 삭제 상태로 표시 (소프트 삭제)
     msg.deleted = true;
     msg.deletedAt = new Date().toISOString();
-    msg.originalText = msg.text; // 원본 보관 (감사용)
-    msg.text = '⊘ 삭제된 메시지입니다.';
+
+    // 이미지/파일 메시지면 Cloudinary에서도 삭제 (저장공간 회수)
+    if ((msg.type === 'image' || msg.type === 'file') && msg.publicId) {
+      deleteFromCloudinary(msg.publicId, msg.resourceType || (msg.type === 'image' ? 'image' : 'raw'));
+      msg.url = null; // URL 제거
+    } else {
+      msg.originalText = msg.text; // 원본 보관 (감사용)
+      msg.text = '⊘ 삭제된 메시지입니다.';
+    }
 
     // 같은 센터 사람들에게 삭제 상태 전파
     // (수신측에서 이 ID에 대한 음성 반복도 중단해야 함)
@@ -402,14 +411,17 @@ const IMAGE_RETENTION_DAYS = 7; // 이미지 보관 기간 (일)
 
 let lastResetDate = null; // 같은 날 중복 초기화 방지
 
-// Cloudinary에서 이미지 삭제 (7일 지난 이미지 정리용)
+// Cloudinary에서 파일 삭제 (7일 지난 파일 정리 + 수동 삭제용)
 // API Key/Secret이 환경변수에 있을 때만 작동
-async function deleteFromCloudinary(publicId) {
+// resourceType: 'image'(사진) 또는 'raw'(문서 파일)
+async function deleteFromCloudinary(publicId, resourceType) {
   if (!publicId) return;
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const apiKey = process.env.CLOUDINARY_API_KEY;
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
   if (!cloudName || !apiKey || !apiSecret) return; // 설정 없으면 건너뜀 (URL만 만료)
+
+  const rt = (resourceType === 'raw') ? 'raw' : 'image';
 
   try {
     const crypto = require('crypto');
@@ -427,14 +439,14 @@ async function deleteFromCloudinary(publicId) {
       signature: signature
     });
 
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${rt}/destroy`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params.toString()
     });
     const result = await res.json();
     if (result.result === 'ok') {
-      console.log(`🗑️  Cloudinary 이미지 삭제: ${publicId}`);
+      console.log(`🗑️  Cloudinary 삭제: ${publicId} (${rt})`);
     }
   } catch (err) {
     console.error(`❌ Cloudinary 삭제 실패 (${publicId}):`, err.message);
@@ -443,39 +455,39 @@ async function deleteFromCloudinary(publicId) {
 
 function clearAllChats() {
   let clearedCenters = 0;
-  let keptImages = 0;
+  let keptFiles = 0;
   const now = Date.now();
   const retentionMs = IMAGE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
   Object.keys(centerData).forEach(centerName => {
     const data = centerData[centerName];
 
-    // 이미지 메시지 중 7일 안 지난 것만 남기고, 나머지(텍스트 + 7일 지난 이미지)는 제거
+    // 이미지/파일 중 7일 안 지난 것만 남기고, 나머지(텍스트 + 7일 지난 파일)는 제거
     const kept = [];
     data.messageHistory.forEach(msg => {
-      if (msg.type === 'image') {
+      if ((msg.type === 'image' || msg.type === 'file') && !msg.deleted) {
         const age = now - new Date(msg.timestamp).getTime();
         if (age < retentionMs) {
-          // 7일 안 지난 이미지 → 유지
+          // 7일 안 지난 파일 → 유지
           kept.push(msg);
-          keptImages++;
+          keptFiles++;
         } else {
-          // 7일 지난 이미지 → Cloudinary에서도 삭제
-          deleteFromCloudinary(msg.publicId);
+          // 7일 지난 파일 → Cloudinary에서도 삭제
+          deleteFromCloudinary(msg.publicId, msg.resourceType || (msg.type === 'image' ? 'image' : 'raw'));
         }
       }
-      // 텍스트/시스템 메시지는 kept에 안 넣음 = 삭제됨
+      // 텍스트/시스템 메시지, 삭제된 메시지는 kept에 안 넣음 = 제거됨
     });
 
     data.messageHistory = kept;
     clearedCenters++;
 
-    // 현재 접속 중인 사용자들에게 갱신된 기록 전송 (이미지만 남은 상태)
+    // 현재 접속 중인 사용자들에게 갱신된 기록 전송 (파일만 남은 상태)
     io.to(centerName).emit('history', kept);
   });
 
   const nowStr = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-  console.log(`🧹 [자동 초기화] ${nowStr} - ${clearedCenters}개 센터 텍스트 초기화 완료 (보관 중인 이미지: ${keptImages}개)`);
+  console.log(`🧹 [자동 초기화] ${nowStr} - ${clearedCenters}개 센터 텍스트 초기화 완료 (보관 중인 파일: ${keptFiles}개)`);
 }
 
 // 1분마다 한국 시간을 확인하여 오후 8시 30분에 초기화
