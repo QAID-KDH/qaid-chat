@@ -145,6 +145,60 @@ app.post('/api/verify', (req, res) => {
   res.json({ success: true });
 });
 
+// ==================== QR 코드 모바일 업로드 ====================
+// PC에서 로그인된 사용자가 QR을 생성하면, 핸드폰으로 스캔하여
+// 비밀번호 없이 해당 센터에 "사진 전송 전용"으로 자동 입장합니다.
+// 보안: 토큰은 5분간만 유효하며, 센터 정보를 서버가 보관 (URL에 비밀번호 노출 X)
+
+const QR_TOKEN_TTL = 5 * 60 * 1000; // 5분
+const qrTokens = new Map(); // token -> { center, createdAt }
+
+const crypto = require('crypto');
+
+// QR 토큰 발급 (PC에서 호출)
+app.post('/api/qr/create', (req, res) => {
+  const { center, password } = req.body;
+
+  // 센터 + 비밀번호 재검증 (아무나 토큰 못 만들게)
+  if (!center || !CENTERS.includes(center)) {
+    return res.status(400).json({ success: false, message: '유효하지 않은 센터입니다.' });
+  }
+  const expectedCode = CENTER_CODES[center];
+  if (!expectedCode || String(password) !== String(expectedCode)) {
+    return res.status(401).json({ success: false, message: '인증 실패' });
+  }
+
+  // 일회성 토큰 생성
+  const token = crypto.randomBytes(24).toString('hex');
+  qrTokens.set(token, { center, createdAt: Date.now() });
+
+  res.json({ success: true, token, ttl: QR_TOKEN_TTL });
+});
+
+// QR 토큰 검증 (핸드폰에서 스캔 후 호출)
+app.get('/api/qr/verify', (req, res) => {
+  const token = req.query.token;
+  if (!token || !qrTokens.has(token)) {
+    return res.status(404).json({ success: false, message: '만료되었거나 잘못된 QR입니다.' });
+  }
+  const info = qrTokens.get(token);
+  // 만료 확인
+  if (Date.now() - info.createdAt > QR_TOKEN_TTL) {
+    qrTokens.delete(token);
+    return res.status(410).json({ success: false, message: 'QR이 만료되었습니다. PC에서 다시 생성해주세요.' });
+  }
+  // 유효 → 센터 정보 반환 (비밀번호는 절대 반환 안 함)
+  res.json({ success: true, center: info.center });
+});
+
+// 만료된 QR 토큰 주기적 정리 (10분마다)
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, info] of qrTokens.entries()) {
+    if (now - info.createdAt > QR_TOKEN_TTL) qrTokens.delete(token);
+  }
+}, 10 * 60 * 1000);
+
 const MAX_HISTORY = 100;
 
 // 센터별 데이터 저장소
@@ -182,16 +236,35 @@ io.on('connection', (socket) => {
   console.log(`접속: ${socket.id}`);
 
   // 사용자 입장
-  socket.on('join', ({ name, role, center, password }) => {
+  socket.on('join', ({ name, role, center, password, qrToken }) => {
     // 유효한 센터인지 검증
     if (!CENTERS.includes(center)) {
       socket.emit('error', '유효하지 않은 센터입니다.');
       return;
     }
 
-    // 비밀번호 재검증 (Socket 연결 시점에도 확인)
-    const expectedCode = CENTER_CODES[center];
-    if (!expectedCode || String(password) !== String(expectedCode)) {
+    // 인증: QR 토큰 또는 비밀번호
+    let authed = false;
+
+    if (qrToken && qrTokens.has(qrToken)) {
+      // QR 토큰 인증 (핸드폰에서 들어온 경우)
+      const info = qrTokens.get(qrToken);
+      if (Date.now() - info.createdAt <= QR_TOKEN_TTL && info.center === center) {
+        authed = true;
+      } else {
+        qrTokens.delete(qrToken);
+      }
+    }
+
+    if (!authed) {
+      // 비밀번호 재검증 (일반 로그인)
+      const expectedCode = CENTER_CODES[center];
+      if (expectedCode && String(password) === String(expectedCode)) {
+        authed = true;
+      }
+    }
+
+    if (!authed) {
       socket.emit('error', '인증 실패');
       socket.disconnect();
       return;
