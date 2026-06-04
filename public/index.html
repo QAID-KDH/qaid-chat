@@ -305,6 +305,7 @@
       flex-direction: column;
       height: 100vh;
       overflow: hidden;
+      position: relative;
     }
 
     .chat-header {
@@ -681,6 +682,131 @@
       border-top: 1px solid var(--border);
       background: var(--surface);
     }
+
+    /* ==================== 사진/파일 기능 ==================== */
+    /* 첨부 버튼 (📎) */
+    .attach-btn {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary, #5A6373);
+      cursor: pointer;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    .attach-btn:hover {
+      background: var(--brand-light, #E8F2FC);
+      color: var(--brand, #327CDB);
+    }
+    .attach-btn svg { width: 22px; height: 22px; }
+
+    /* 업로드 진행 표시 */
+    .upload-progress {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      background: var(--brand-light, #E8F2FC);
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--brand-dark, #1E5BAA);
+    }
+    .upload-progress.show { display: flex; }
+    .upload-spinner {
+      width: 16px; height: 16px;
+      border: 2px solid var(--brand, #327CDB);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: uploadSpin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes uploadSpin { to { transform: rotate(360deg); } }
+    .upload-progress .cancel-upload {
+      margin-left: auto;
+      background: none; border: none;
+      color: var(--text-secondary, #5A6373);
+      cursor: pointer; font-size: 16px;
+    }
+
+    /* 채팅 내 이미지 썸네일 */
+    .message-image {
+      display: block;
+      max-width: 240px;
+      max-height: 240px;
+      border-radius: 12px;
+      cursor: pointer;
+      object-fit: cover;
+      background: var(--surface-2, #F4F6F9);
+      transition: opacity 0.15s;
+    }
+    .message-image:hover { opacity: 0.9; }
+    .message-image-caption {
+      margin-top: 6px;
+      font-size: 13px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .message.deleted .message-image { display: none; }
+
+    /* 드래그 오버 표시 */
+    .main.drag-over::after {
+      content: '📎 여기에 놓으면 사진이 전송됩니다';
+      position: absolute;
+      inset: 0;
+      background: rgba(50, 124, 219, 0.12);
+      border: 3px dashed var(--brand, #327CDB);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--brand-dark, #1E5BAA);
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    /* 이미지 크게 보기 (라이트박스) */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .lightbox.show { display: flex; }
+    .lightbox img {
+      max-width: 90vw;
+      max-height: 80vh;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+    .lightbox-actions { display: flex; gap: 12px; }
+    .lightbox-btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lightbox-btn:hover { background: rgba(255,255,255,0.28); }
+    .lightbox-btn.primary { background: var(--brand, #327CDB); }
+    .lightbox-btn.primary:hover { background: var(--brand-dark, #1E5BAA); }
+
 
     /* ==================== 음성 모드 토글 ==================== */
     .voice-mode-toggle {
@@ -1584,6 +1710,12 @@
       <div class="typing-indicator" id="typingIndicator"></div>
 
       <div class="input-area">
+        <!-- 업로드 진행 표시 -->
+        <div class="upload-progress" id="uploadProgress">
+          <span class="upload-spinner"></span>
+          <span id="uploadProgressText">사진 업로드 중...</span>
+        </div>
+
         <!-- 음성 모드 토글 버튼 -->
         <button class="voice-mode-toggle" id="voiceModeToggle" type="button" title="클릭하여 음성 모드 전환">
           <span class="voice-mode-toggle-icon" id="voiceModeIcon">💬</span>
@@ -1591,6 +1723,14 @@
         </button>
 
         <div class="input-wrapper" id="inputWrapper">
+          <!-- 숨겨진 파일 선택 input -->
+          <input type="file" id="fileInput" accept="image/*" style="display:none;" />
+          <!-- 첨부 버튼 -->
+          <button class="attach-btn" id="attachBtn" type="button" title="사진 첨부">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+            </svg>
+          </button>
           <textarea
             class="message-input"
             id="messageInput"
@@ -1606,6 +1746,15 @@
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- 이미지 크게 보기 (라이트박스) -->
+  <div class="lightbox" id="lightbox">
+    <img id="lightboxImg" src="" alt="이미지" />
+    <div class="lightbox-actions">
+      <a class="lightbox-btn primary" id="lightboxDownload" href="" download>다운로드</a>
+      <button class="lightbox-btn" id="lightboxClose">닫기</button>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -2681,6 +2830,37 @@ GSX Ship-to ( 배송 계정 ) :
       if (msg.type === 'system') {
         div.className = 'message system';
         div.innerHTML = `<div class="message-bubble">${escapeHtml(msg.text)}</div>`;
+      } else if (msg.type === 'image') {
+        // ===== 이미지 메시지 =====
+        const isOwn = msg.name === myName && msg.role === myRole;
+        div.className = `message ${isOwn ? 'own' : 'other'}`;
+        if (msg.id) div.dataset.messageId = msg.id;
+        const roleIcon = msg.role === 'repair' ? '🔧' : '💬';
+        const roleLabel = msg.role === 'repair' ? '수리실' : '고객대기실';
+        const safeUrl = escapeHtml(msg.url);
+        const caption = msg.caption ? `<div class="message-image-caption">${escapeHtml(msg.caption)}</div>` : '';
+
+        let html = `
+          <div class="message-meta">
+            <span class="message-name ${msg.role}">${roleIcon} ${escapeHtml(msg.name)} · ${roleLabel}</span>
+            <span>${time}</span>
+          </div>
+          <div class="message-bubble">
+            <img class="message-image" src="${safeUrl}" alt="전송된 사진" loading="lazy"
+                 data-full-url="${safeUrl}" data-file-name="${escapeHtml(msg.fileName || 'image')}" />
+            ${caption}
+          </div>
+        `;
+        div.innerHTML = html;
+
+        // 썸네일 클릭 → 크게 보기
+        const imgEl = div.querySelector('.message-image');
+        if (imgEl) {
+          imgEl.addEventListener('click', () => openLightbox(msg.url, msg.fileName));
+        }
+
+        messagesEl.appendChild(div);
+        return;
       } else {
         const isOwn = msg.name === myName && msg.role === myRole;
         const isDeleted = msg.deleted === true;
@@ -2849,6 +3029,142 @@ GSX Ship-to ( 배송 계정 ) :
     }
 
     sendBtn.addEventListener('click', sendMessage);
+
+    // ==================== 사진/파일 업로드 기능 ====================
+    // Cloudinary 설정 (공개돼도 안전한 값)
+    const CLOUDINARY_CLOUD_NAME = 'dmgrwqlyt';
+    const CLOUDINARY_UPLOAD_PRESET = 'qaid_chat';
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB 제한
+
+    const fileInput = document.getElementById('fileInput');
+    const attachBtn = document.getElementById('attachBtn');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const uploadProgressText = document.getElementById('uploadProgressText');
+    const chatMain = document.querySelector('.main') || document.querySelector('main');
+
+    // 첨부 버튼 → 파일 선택창 열기
+    attachBtn.addEventListener('click', () => fileInput.click());
+
+    // 파일 선택 시
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) uploadAndSend(file);
+      fileInput.value = ''; // 같은 파일 다시 선택 가능하도록 초기화
+    });
+
+    // 이미지 파일 검증
+    function validateFile(file) {
+      if (!file.type.startsWith('image/')) {
+        alert('사진 파일만 전송할 수 있습니다.');
+        return false;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        alert('파일이 너무 큽니다. 10MB 이하의 사진만 전송할 수 있습니다.');
+        return false;
+      }
+      return true;
+    }
+
+    // Cloudinary 업로드 후 채팅으로 전송
+    async function uploadAndSend(file) {
+      if (!validateFile(file)) return;
+      if (!socket) { alert('연결이 끊어졌습니다. 새로고침 후 다시 시도해주세요.'); return; }
+
+      uploadProgress.classList.add('show');
+      uploadProgressText.textContent = '사진 업로드 중...';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+        const res = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+          { method: 'POST', body: formData }
+        );
+
+        if (!res.ok) throw new Error('업로드 실패 (' + res.status + ')');
+        const data = await res.json();
+        if (!data.secure_url) throw new Error('이미지 주소를 받지 못했습니다.');
+
+        // 채팅으로 이미지 메시지 전송
+        socket.emit('message', {
+          type: 'image',
+          url: data.secure_url,
+          publicId: data.public_id || null,
+          fileName: file.name || 'image',
+          fileType: file.type || 'image'
+        });
+      } catch (err) {
+        console.error('[사진 업로드] 실패:', err);
+        alert('사진 전송에 실패했습니다.\n다시 시도해주세요.\n\n(' + err.message + ')');
+      } finally {
+        uploadProgress.classList.remove('show');
+      }
+    }
+
+    // ===== 드래그 앤 드롭 =====
+    if (chatMain) {
+      chatMain.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        chatMain.classList.add('drag-over');
+      });
+      chatMain.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        // 자식 요소로 이동 시 깜빡임 방지
+        if (e.target === chatMain || !chatMain.contains(e.relatedTarget)) {
+          chatMain.classList.remove('drag-over');
+        }
+      });
+      chatMain.addEventListener('drop', (e) => {
+        e.preventDefault();
+        chatMain.classList.remove('drag-over');
+        const file = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) uploadAndSend(file);
+      });
+    }
+
+    // ===== 붙여넣기 (Ctrl+V로 캡처 이미지 전송) =====
+    messageInput.addEventListener('paste', (e) => {
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            uploadAndSend(file);
+          }
+          break;
+        }
+      }
+    });
+
+    // ===== 이미지 크게 보기 (라이트박스) =====
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    const lightboxDownload = document.getElementById('lightboxDownload');
+    const lightboxClose = document.getElementById('lightboxClose');
+
+    function openLightbox(url, fileName) {
+      lightboxImg.src = url;
+      lightboxDownload.href = url;
+      lightboxDownload.setAttribute('download', fileName || 'image');
+      lightbox.classList.add('show');
+    }
+    function closeLightbox() {
+      lightbox.classList.remove('show');
+      lightboxImg.src = '';
+    }
+    lightboxClose.addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox) closeLightbox();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && lightbox.classList.contains('show')) closeLightbox();
+    });
+    // ==================== 사진 기능 끝 ====================
+
 
     // 한글 IME(입력기) 조합 상태 추적
     // 한글 입력 중에는 Enter가 두 번 발생하는 문제를 방지
