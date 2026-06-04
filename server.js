@@ -164,8 +164,14 @@ function getCenterData(centerName) {
 function addToHistory(centerName, message) {
   const data = getCenterData(centerName);
   data.messageHistory.push(message);
+  // 100개 초과 시 가장 오래된 "텍스트/시스템" 메시지부터 제거 (이미지는 보호)
   if (data.messageHistory.length > MAX_HISTORY) {
-    data.messageHistory.shift();
+    const idx = data.messageHistory.findIndex(m => m.type !== 'image');
+    if (idx !== -1) {
+      data.messageHistory.splice(idx, 1); // 가장 오래된 비이미지 메시지 제거
+    } else {
+      data.messageHistory.shift(); // 전부 이미지면 맨 앞 제거 (예외적)
+    }
   }
 }
 
@@ -217,7 +223,7 @@ io.on('connection', (socket) => {
   });
 
   // 메시지 수신
-  // payload: 문자열(text) 또는 객체 { text, withVoice } 둘 다 호환
+  // payload: 문자열(text) 또는 객체 { text, withVoice } 또는 { type:'image', ... } 호환
   socket.on('message', (payload) => {
     const center = socketCenter.get(socket.id);
     if (!center) return;
@@ -225,6 +231,35 @@ io.on('connection', (socket) => {
     const user = data.users.get(socket.id);
     if (!user) return;
 
+    // ===== 이미지/파일 메시지 처리 =====
+    if (payload && typeof payload === 'object' && payload.type === 'image') {
+      // Cloudinary URL 검증 (보안: 우리 클라우드 주소만 허용)
+      const url = typeof payload.url === 'string' ? payload.url : '';
+      if (!url.startsWith('https://res.cloudinary.com/')) {
+        socket.emit('error', '유효하지 않은 이미지입니다.');
+        return;
+      }
+
+      const imageMessage = {
+        id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+        type: 'image',
+        name: user.name,
+        role: user.role,
+        url: url,
+        publicId: typeof payload.publicId === 'string' ? payload.publicId : null, // 삭제용
+        fileName: typeof payload.fileName === 'string' ? payload.fileName.slice(0, 100) : '',
+        fileType: typeof payload.fileType === 'string' ? payload.fileType : 'image',
+        caption: typeof payload.caption === 'string' ? payload.caption.trim().slice(0, 500) : '',
+        timestamp: new Date().toISOString()
+      };
+
+      addToHistory(center, imageMessage);
+      io.to(center).emit('message', imageMessage);
+      console.log(`[${center}] ${user.name} 이미지 전송`);
+      return;
+    }
+
+    // ===== 텍스트 메시지 처리 (기존) =====
     // 하위 호환성: payload가 문자열이면 텍스트 모드로 처리
     let text, withVoice;
     if (typeof payload === 'string') {
@@ -359,27 +394,88 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', centers: stats });
 });
 
-// ==================== 매일 새벽 4시 자동 초기화 ====================
-// 채팅 메시지만 비우고, 센터 설정/비밀번호/기능은 그대로 유지합니다.
-// 매일 깨끗한 상태로 새 하루를 시작하기 위한 기능입니다.
+// ==================== 매일 오후 8시 30분 자동 초기화 ====================
+// 텍스트 채팅은 매일 비우고, 이미지/파일은 7일간 보관 후 자동 삭제합니다.
+// 센터 설정/비밀번호/기능은 그대로 유지합니다.
+
+const IMAGE_RETENTION_DAYS = 7; // 이미지 보관 기간 (일)
 
 let lastResetDate = null; // 같은 날 중복 초기화 방지
 
+// Cloudinary에서 이미지 삭제 (7일 지난 이미지 정리용)
+// API Key/Secret이 환경변수에 있을 때만 작동
+async function deleteFromCloudinary(publicId) {
+  if (!publicId) return;
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  if (!cloudName || !apiKey || !apiSecret) return; // 설정 없으면 건너뜀 (URL만 만료)
+
+  try {
+    const crypto = require('crypto');
+    const timestamp = Math.floor(Date.now() / 1000);
+    // Cloudinary 삭제 서명 생성
+    const signature = crypto
+      .createHash('sha1')
+      .update(`public_id=${publicId}&timestamp=${timestamp}${apiSecret}`)
+      .digest('hex');
+
+    const params = new URLSearchParams({
+      public_id: publicId,
+      timestamp: String(timestamp),
+      api_key: apiKey,
+      signature: signature
+    });
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    });
+    const result = await res.json();
+    if (result.result === 'ok') {
+      console.log(`🗑️  Cloudinary 이미지 삭제: ${publicId}`);
+    }
+  } catch (err) {
+    console.error(`❌ Cloudinary 삭제 실패 (${publicId}):`, err.message);
+  }
+}
+
 function clearAllChats() {
   let clearedCenters = 0;
+  let keptImages = 0;
+  const now = Date.now();
+  const retentionMs = IMAGE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
   Object.keys(centerData).forEach(centerName => {
     const data = centerData[centerName];
-    // 채팅 기록만 비움 (users 접속 정보는 유지)
-    data.messageHistory = [];
+
+    // 이미지 메시지 중 7일 안 지난 것만 남기고, 나머지(텍스트 + 7일 지난 이미지)는 제거
+    const kept = [];
+    data.messageHistory.forEach(msg => {
+      if (msg.type === 'image') {
+        const age = now - new Date(msg.timestamp).getTime();
+        if (age < retentionMs) {
+          // 7일 안 지난 이미지 → 유지
+          kept.push(msg);
+          keptImages++;
+        } else {
+          // 7일 지난 이미지 → Cloudinary에서도 삭제
+          deleteFromCloudinary(msg.publicId);
+        }
+      }
+      // 텍스트/시스템 메시지는 kept에 안 넣음 = 삭제됨
+    });
+
+    data.messageHistory = kept;
     clearedCenters++;
 
-    // 현재 접속 중인 사용자들에게 빈 채팅 기록 전송 (화면 갱신)
-    io.to(centerName).emit('history', []);
+    // 현재 접속 중인 사용자들에게 갱신된 기록 전송 (이미지만 남은 상태)
+    io.to(centerName).emit('history', kept);
   });
 
-  const now = new Date();
-  console.log(`🧹 [자동 초기화] ${now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} - ${clearedCenters}개 센터 채팅 초기화 완료`);
+  const nowStr = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+  console.log(`🧹 [자동 초기화] ${nowStr} - ${clearedCenters}개 센터 텍스트 초기화 완료 (보관 중인 이미지: ${keptImages}개)`);
 }
 
 // 1분마다 한국 시간을 확인하여 오후 8시 30분에 초기화
