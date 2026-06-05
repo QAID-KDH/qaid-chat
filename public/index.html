@@ -2714,10 +2714,10 @@ GSX Ship-to ( 배송 계정 ) :
 
     function showQrError(msg) {
       document.body.innerHTML = `
-        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;font-family:Pretendard,sans-serif;padding:24px;text-align:center;background:#F4F6F9;">
-          <div style="font-size:48px;">⚠️</div>
-          <div style="font-size:18px;font-weight:700;color:#2D3748;">${msg}</div>
-          <div style="font-size:14px;color:#5A6373;">PC 화면에서 QR코드를 다시 생성해주세요.</div>
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;font-family:'Pretendard',-apple-system,sans-serif;padding:32px 24px;text-align:center;background:#F4F6F9;">
+          <div style="width:72px;height:72px;border-radius:50%;background:#FEE2E2;display:flex;align-items:center;justify-content:center;font-size:34px;">⚠️</div>
+          <div style="font-size:18px;font-weight:700;color:#1A1D24;line-height:1.4;">${msg}</div>
+          <div style="font-size:14px;color:#4B5563;line-height:1.5;">PC 화면에서 QR코드를<br>다시 생성해주세요.</div>
         </div>`;
     }
 
@@ -2731,24 +2731,43 @@ GSX Ship-to ( 배송 계정 ) :
         showQrError(msg || '입장에 실패했습니다.');
       });
 
-      // 사진 전용 업로드 화면 렌더링
+      // 사진 전용 업로드 화면 (채팅앱과 동일한 디자인 토큰 사용)
+      document.body.style.margin = '0';
       document.body.innerHTML = `
-        <div style="min-height:100vh;display:flex;flex-direction:column;font-family:Pretendard,sans-serif;background:#fff;">
-          <div style="background:#327CDB;color:#fff;padding:18px 20px;text-align:center;">
-            <div style="font-size:17px;font-weight:700;">📷 ${center} 사진 전송</div>
-            <div style="font-size:12px;opacity:0.9;margin-top:2px;">찍거나 선택한 사진이 PC 채팅으로 전송됩니다</div>
+        <div style="min-height:100vh;display:flex;flex-direction:column;font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;background:#F4F6F9;color:#1A1D24;">
+          <!-- 헤더 -->
+          <div style="background:#327CDB;color:#fff;padding:20px 20px 22px;box-shadow:0 2px 12px rgba(50,124,219,0.25);">
+            <div style="display:flex;align-items:center;gap:10px;justify-content:center;">
+              <span style="font-size:22px;">📷</span>
+              <span style="font-size:18px;font-weight:700;">${center}</span>
+            </div>
+            <div style="font-size:13px;opacity:0.92;margin-top:4px;text-align:center;">사진을 찍으면 PC 채팅으로 바로 전송됩니다</div>
           </div>
-          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;">
-            <button id="qrTakePhoto" style="width:100%;max-width:300px;padding:20px;font-size:17px;font-weight:700;color:#fff;background:#327CDB;border:none;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
-              📷 사진 찍기
+
+          <!-- 본문 -->
+          <div style="flex:1;display:flex;flex-direction:column;padding:24px 20px;gap:14px;">
+            <button id="qrTakePhoto" style="width:100%;padding:18px;font-size:16px;font-weight:700;font-family:inherit;color:#fff;background:#327CDB;border:none;border-radius:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 14px rgba(50,124,219,0.3);transition:transform 0.1s;">
+              <span style="font-size:20px;">📷</span> 사진 찍기
             </button>
-            <button id="qrPickPhoto" style="width:100%;max-width:300px;padding:20px;font-size:17px;font-weight:700;color:#327CDB;background:#E8F2FC;border:none;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
-              🖼️ 앨범에서 선택
+            <button id="qrPickPhoto" style="width:100%;padding:18px;font-size:16px;font-weight:700;font-family:inherit;color:#327CDB;background:#fff;border:1.5px solid #E8F2FC;border-radius:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+              <span style="font-size:20px;">🖼️</span> 앨범에서 선택
             </button>
+
             <input type="file" id="qrCameraInput" accept="image/*" capture="environment" style="display:none;" />
             <input type="file" id="qrAlbumInput" accept="image/*" style="display:none;" />
-            <div id="qrUploadStatus" style="font-size:14px;color:#5A6373;min-height:24px;text-align:center;"></div>
-            <div id="qrSentList" style="width:100%;max-width:300px;display:flex;flex-direction:column;gap:8px;"></div>
+
+            <div id="qrUploadStatus" style="font-size:14px;font-weight:600;min-height:22px;text-align:center;padding:4px;"></div>
+
+            <!-- 전송 목록 -->
+            <div id="qrSentWrap" style="display:none;margin-top:4px;">
+              <div style="font-size:13px;font-weight:600;color:#4B5563;margin-bottom:10px;padding-left:4px;">전송한 사진</div>
+              <div id="qrSentList" style="display:flex;flex-direction:column;gap:8px;"></div>
+            </div>
+          </div>
+
+          <!-- 하단 안내 -->
+          <div style="padding:16px 20px 28px;text-align:center;font-size:12px;color:#9098A4;">
+            큐에이드 채팅 · 사진 전송
           </div>
         </div>`;
 
@@ -2756,15 +2775,25 @@ GSX Ship-to ( 배송 계정 ) :
       const albumInput = document.getElementById('qrAlbumInput');
       const statusEl = document.getElementById('qrUploadStatus');
       const sentList = document.getElementById('qrSentList');
+      const sentWrap = document.getElementById('qrSentWrap');
+      const takeBtn = document.getElementById('qrTakePhoto');
+      const pickBtn = document.getElementById('qrPickPhoto');
 
-      document.getElementById('qrTakePhoto').addEventListener('click', () => cameraInput.click());
-      document.getElementById('qrPickPhoto').addEventListener('click', () => albumInput.click());
+      // 버튼 눌림 효과
+      [takeBtn, pickBtn].forEach(btn => {
+        btn.addEventListener('touchstart', () => { btn.style.transform = 'scale(0.97)'; }, { passive: true });
+        btn.addEventListener('touchend', () => { btn.style.transform = 'scale(1)'; }, { passive: true });
+      });
+
+      takeBtn.addEventListener('click', () => cameraInput.click());
+      pickBtn.addEventListener('click', () => albumInput.click());
 
       const handleQrFile = async (file) => {
         if (!file) return;
         if (!file.type.startsWith('image/')) { alert('사진만 전송할 수 있습니다.'); return; }
         if (file.size > 10 * 1024 * 1024) { alert('10MB 이하 사진만 전송할 수 있습니다.'); return; }
 
+        statusEl.style.color = '#4B5563';
         statusEl.textContent = '⏳ 전송 중...';
         try {
           const formData = new FormData();
@@ -2786,15 +2815,27 @@ GSX Ship-to ( 배송 계정 ) :
             fileSize: file.size
           });
 
+          statusEl.style.color = '#10B981';
           statusEl.textContent = '✅ 전송 완료!';
-          // 전송 목록에 썸네일 추가
-          const thumb = document.createElement('div');
-          thumb.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px;background:#F4F6F9;border-radius:10px;font-size:13px;color:#2D3748;';
-          thumb.innerHTML = `<img src="${upData.secure_url}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;"> 전송됨 (${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})})`;
-          sentList.prepend(thumb);
-          setTimeout(() => { statusEl.textContent = ''; }, 2000);
+
+          // 전송 목록에 카드 추가
+          sentWrap.style.display = 'block';
+          const card = document.createElement('div');
+          card.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px;background:#fff;border:1px solid #E5E8EC;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.04);';
+          const t = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+          card.innerHTML = `
+            <img src="${upData.secure_url}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:600;color:#1A1D24;">전송 완료</div>
+              <div style="font-size:11px;color:#9098A4;margin-top:2px;">${t}</div>
+            </div>
+            <span style="color:#10B981;font-size:18px;">✓</span>`;
+          sentList.prepend(card);
+
+          setTimeout(() => { statusEl.textContent = ''; }, 2500);
         } catch (err) {
           console.error('[QR 업로드] 실패:', err);
+          statusEl.style.color = '#EF4444';
           statusEl.textContent = '❌ 전송 실패. 다시 시도해주세요.';
         }
       };
