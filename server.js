@@ -402,11 +402,17 @@ io.on('connection', (socket) => {
     const msg = data.messageHistory.find(m => m.id === messageId);
     if (!msg) return;
 
-    // 본인이 보낸 메시지인지 확인 (이름 + 부서 모두 일치)
-    if (msg.name !== user.name || msg.role !== user.role) {
-      socket.emit('error', '본인이 보낸 메시지만 삭제할 수 있습니다.');
-      return;
+    // 삭제 권한 확인
+    // - QR로 올린 사진(이름 'QR')은 같은 센터 사람이면 누구나 삭제 가능 (공용 사진)
+    // - 그 외 메시지는 본인이 보낸 것만 삭제 가능 (이름 + 부서 일치)
+    const isQrPhoto = msg.type === 'image' && msg.name === 'QR';
+    if (!isQrPhoto) {
+      if (msg.name !== user.name || msg.role !== user.role) {
+        socket.emit('error', '본인이 보낸 메시지만 삭제할 수 있습니다.');
+        return;
+      }
     }
+    // (isQrPhoto면 같은 센터 사용자이므로 통과 - socketCenter로 이미 센터 확인됨)
 
     // 이미 삭제된 메시지인지 확인
     if (msg.deleted) return;
