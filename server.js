@@ -275,24 +275,29 @@ io.on('connection', (socket) => {
     socketCenter.set(socket.id, center);
 
     const data = getCenterData(center);
-    data.users.set(socket.id, { name, role });
+    // QR로 들어온 사진 전송 사용자인지 표시 (접속자 목록/입장알림에서 제외)
+    const isQrUser = !!qrToken && authed;
+    data.users.set(socket.id, { name, role, isQrUser });
 
     // 입장한 사용자에게 해당 센터의 메시지 히스토리만 전송
     socket.emit('history', data.messageHistory);
 
-    // 같은 센터 사람들에게만 접속자 목록 전송
-    io.to(center).emit('users', Array.from(data.users.values()));
+    // 같은 센터 사람들에게만 접속자 목록 전송 (QR 사용자는 제외)
+    const visibleUsers = Array.from(data.users.values()).filter(u => !u.isQrUser);
+    io.to(center).emit('users', visibleUsers);
 
-    // 같은 센터 사람들에게만 입장 알림
-    const joinMessage = {
-      type: 'system',
-      text: `${role === 'repair' ? '🔧 수리실' : '💬 고객대기실'} ${name}님이 입장했습니다.`,
-      timestamp: new Date().toISOString()
-    };
-    io.to(center).emit('message', joinMessage);
-    addToHistory(center, joinMessage);
+    // QR 사용자가 아닐 때만 입장 알림 표시
+    if (!isQrUser) {
+      const joinMessage = {
+        type: 'system',
+        text: `${role === 'repair' ? '🔧 수리실' : '💬 고객대기실'} ${name}님이 입장했습니다.`,
+        timestamp: new Date().toISOString()
+      };
+      io.to(center).emit('message', joinMessage);
+      addToHistory(center, joinMessage);
+    }
 
-    console.log(`[${center}] ${name}(${role}) 입장`);
+    console.log(`[${center}] ${name}(${role}) 입장${isQrUser ? ' (QR)' : ''}`);
   });
 
   // 메시지 수신
@@ -456,16 +461,21 @@ io.on('connection', (socket) => {
       const data = getCenterData(center);
       const user = data.users.get(socket.id);
       if (user) {
-        const leaveMessage = {
-          type: 'system',
-          text: `${user.role === 'repair' ? '🔧 수리실' : '💬 고객대기실'} ${user.name}님이 퇴장했습니다.`,
-          timestamp: new Date().toISOString()
-        };
-        io.to(center).emit('message', leaveMessage);
-        addToHistory(center, leaveMessage);
+        // QR 사용자가 아닐 때만 퇴장 알림 표시
+        if (!user.isQrUser) {
+          const leaveMessage = {
+            type: 'system',
+            text: `${user.role === 'repair' ? '🔧 수리실' : '💬 고객대기실'} ${user.name}님이 퇴장했습니다.`,
+            timestamp: new Date().toISOString()
+          };
+          io.to(center).emit('message', leaveMessage);
+          addToHistory(center, leaveMessage);
+        }
         data.users.delete(socket.id);
-        io.to(center).emit('users', Array.from(data.users.values()));
-        console.log(`[${center}] ${user.name} 퇴장`);
+        // 접속자 목록 갱신 (QR 사용자 제외)
+        const visibleUsers = Array.from(data.users.values()).filter(u => !u.isQrUser);
+        io.to(center).emit('users', visibleUsers);
+        console.log(`[${center}] ${user.name} 퇴장${user.isQrUser ? ' (QR)' : ''}`);
       }
       socketCenter.delete(socket.id);
     }
