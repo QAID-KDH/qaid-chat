@@ -3207,15 +3207,20 @@ GSX Ship-to ( 배송 계정 ) :
           if (imgEl) imgEl.addEventListener('click', () => openLightbox(msg.url, msg.fileName));
         }
 
-        // 본인이 보낸 파일이면 삭제 버튼 추가
-        if (isOwn && msg.id) {
+        // 삭제 버튼 표시 조건:
+        // - 본인이 보낸 사진/파일, 또는
+        // - QR로 올린 공용 사진(이름 'QR') → 같은 센터 누구나 삭제 가능
+        const isQrPhoto = msg.type === 'image' && msg.name === 'QR';
+        if ((isOwn || isQrPhoto) && msg.id) {
           const delBtn = document.createElement('button');
           delBtn.className = 'media-delete-btn';
           delBtn.textContent = '✕';
           delBtn.title = '삭제';
           delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (confirm('이 ' + (msg.type === 'image' ? '사진을' : '파일을') + ' 삭제할까요?\n(상대방 화면에서도 삭제됩니다)')) {
+            const what = msg.type === 'image' ? '사진을' : '파일을';
+            const extra = isQrPhoto && !isOwn ? '\n(현장에서 QR로 올린 사진입니다)' : '';
+            if (confirm('이 ' + what + ' 삭제할까요?\n(상대방 화면에서도 삭제됩니다)' + extra)) {
               socket.emit('delete', msg.id);
             }
           });
