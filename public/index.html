@@ -436,6 +436,7 @@
       flex-direction: column;
       max-width: 70%;
       animation: slideIn 0.2s ease-out;
+      position: relative;
     }
 
     @keyframes slideIn {
@@ -805,25 +806,32 @@
     .message.deleted .message-file { display: none; }
 
     /* 이미지/파일 메시지의 삭제 버튼 */
+    /* 이미지/파일을 담은 말풍선을 기준점으로 */
+    .message-bubble.has-media {
+      position: relative;
+    }
     .message .media-delete-btn {
       position: absolute;
-      top: 4px;
-      right: 4px;
-      width: 26px;
-      height: 26px;
+      top: 6px;
+      right: 6px;
+      width: 28px;
+      height: 28px;
       border-radius: 50%;
-      border: none;
-      background: rgba(0,0,0,0.55);
+      border: 2px solid #fff;
+      background: rgba(0,0,0,0.6);
       color: #fff;
-      font-size: 14px;
+      font-size: 13px;
       cursor: pointer;
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 5;
+      z-index: 10;
+      padding: 0;
+      line-height: 1;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
     }
-    .message:hover .media-delete-btn { display: flex; }
-    .message .media-delete-btn:hover { background: rgba(217,56,49,0.9); }
+    .message-bubble.has-media:hover .media-delete-btn { display: flex; }
+    .message .media-delete-btn:hover { background: rgba(217,56,49,0.95); }
 
     /* 드래그 오버 표시 */
     .main.drag-over::after {
@@ -3195,7 +3203,7 @@ GSX Ship-to ( 배송 계정 ) :
             <span class="message-name ${msg.role}">${roleIcon} ${escapeHtml(msg.name)} · ${roleLabel}</span>
             <span>${time}</span>
           </div>
-          <div class="message-bubble">
+          <div class="message-bubble has-media">
             ${mediaHtml}
             ${caption}
           </div>
@@ -3218,13 +3226,16 @@ GSX Ship-to ( 배송 계정 ) :
           delBtn.title = '삭제';
           delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            e.preventDefault();
             const what = msg.type === 'image' ? '사진을' : '파일을';
             const extra = isQrPhoto && !isOwn ? '\n(현장에서 QR로 올린 사진입니다)' : '';
             if (confirm('이 ' + what + ' 삭제할까요?\n(상대방 화면에서도 삭제됩니다)' + extra)) {
               socket.emit('delete', msg.id);
             }
           });
-          div.appendChild(delBtn);
+          // 사진을 감싼 말풍선에 붙임 (위치 기준점)
+          const bubbleEl = div.querySelector('.message-bubble');
+          if (bubbleEl) bubbleEl.appendChild(delBtn);
         }
 
         messagesEl.appendChild(div);
