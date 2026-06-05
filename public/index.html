@@ -2675,13 +2675,15 @@ GSX Ship-to ( 배송 계정 ) :
         alert('센터 목록을 불러오지 못했습니다. 페이지를 새로고침 해주세요.');
       }
     }
-    loadCenters();
-
     // ==================== QR 모바일 사진 업로드 모드 ====================
     // 핸드폰에서 QR 스캔으로 ?qr=토큰 으로 접속한 경우
     const qrTokenFromUrl = urlParams.get('qr');
     if (qrTokenFromUrl) {
+      // QR 모드: 로그인 화면용 센터 목록 로드 생략하고 바로 사진 업로드 모드로
       enterQrUploadMode(qrTokenFromUrl);
+    } else {
+      // 일반 모드: 로그인 화면 센터 목록 로드
+      loadCenters();
     }
 
     async function enterQrUploadMode(token) {
@@ -2846,6 +2848,7 @@ GSX Ship-to ( 배송 계정 ) :
     // ==================== QR 모바일 모드 끝 ====================
 
     // 로그인 화면 핸들러
+    // QR 모드(?qr=)일 때는 로그인 화면이 없으므로 핸들러 등록을 건너뜀
     const nameInput = document.getElementById('nameInput');
     const centerSelect = document.getElementById('centerSelect');
     const passwordInput = document.getElementById('passwordInput');
@@ -2853,6 +2856,7 @@ GSX Ship-to ( 배송 계정 ) :
     const joinBtn = document.getElementById('joinBtn');
     const roleButtons = document.querySelectorAll('.role-btn');
 
+    if (!qrTokenFromUrl && nameInput && centerSelect && passwordInput && joinBtn) {
     roleButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         roleButtons.forEach(b => b.classList.remove('active'));
@@ -2869,6 +2873,15 @@ GSX Ship-to ( 배송 계정 ) :
       errorMessage.textContent = ''; // 입력 시작하면 에러 메시지 제거
     });
 
+    joinBtn.addEventListener('click', joinChat);
+    nameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !joinBtn.disabled) joinChat();
+    });
+    passwordInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !joinBtn.disabled) joinChat();
+    });
+    } // end if (!qrTokenFromUrl) - QR 모드면 로그인 핸들러 건너뜀
+
     function validateForm() {
       joinBtn.disabled = !(
         nameInput.value.trim() &&
@@ -2877,14 +2890,6 @@ GSX Ship-to ( 배송 계정 ) :
         passwordInput.value.trim()
       );
     }
-
-    joinBtn.addEventListener('click', joinChat);
-    nameInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && !joinBtn.disabled) joinChat();
-    });
-    passwordInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && !joinBtn.disabled) joinChat();
-    });
 
     async function joinChat() {
       const inputName = nameInput.value.trim();
