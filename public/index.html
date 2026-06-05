@@ -1539,130 +1539,12 @@
       background: var(--surface);
     }
 
-    /* 메모 참고하기 드롭박스 */
-    .memo-preset-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .memo-preset-select {
-      flex: 1;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 13px;
-      font-family: inherit;
-      color: var(--text);
-      background: var(--surface-2);
-      cursor: pointer;
-      outline: none;
-      -webkit-appearance: none;
-      appearance: none;
-      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235A6373' stroke-width='2'%3e%3cpath d='M6 9l6 6 6-6'/%3e%3c/svg%3e");
-      background-repeat: no-repeat;
-      background-position: right 10px center;
-      background-size: 16px;
-      padding-right: 32px;
-    }
-    .memo-preset-select:focus { border-color: var(--brand); }
-    .memo-preset-delete {
-      flex-shrink: 0;
-      width: 38px;
-      height: 38px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface-2);
-      color: var(--text-secondary);
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .memo-preset-delete:hover:not(:disabled) {
-      background: #FEE2E2;
-      color: #EF4444;
-      border-color: #FECACA;
-    }
-    .memo-preset-delete:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    /* 메모 이름 입력 모달 */
-    .memo-name-modal {
-      display: none;
-      position: absolute;
-      inset: 0;
-      background: rgba(0,0,0,0.4);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    .memo-name-modal.show { display: flex; }
-    .memo-name-box {
-      background: #fff;
-      border-radius: 16px;
-      padding: 22px 20px 18px;
-      width: 100%;
-      max-width: 320px;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-    }
-    .memo-name-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 14px;
-    }
-    .memo-name-input {
-      width: 100%;
-      padding: 11px 13px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 14px;
-      font-family: inherit;
-      color: var(--text);
-      box-sizing: border-box;
-      outline: none;
-      margin-bottom: 16px;
-    }
-    .memo-name-input:focus { border-color: var(--brand); }
-    .memo-confirm-message {
-      font-size: 13.5px;
-      color: var(--text-secondary);
-      line-height: 1.5;
-      margin-bottom: 16px;
-    }
-    .memo-name-actions {
-      display: flex;
-      gap: 8px;
-    }
-    .memo-name-cancel,
-    .memo-name-confirm {
-      flex: 1;
-      padding: 11px;
-      border-radius: 10px;
-      border: none;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .memo-name-cancel {
-      background: var(--surface-2);
-      color: var(--text-secondary);
-    }
-    .memo-name-confirm {
-      background: var(--brand);
-      color: #fff;
-    }
-    .memo-name-confirm:hover { background: var(--brand-hover); }
-
     .memo-btn-secondary,
     .memo-btn-primary {
-      padding: 11px 12px;
+      padding: 11px 16px;
       border-radius: 10px;
       border: none;
-      font-size: 12.5px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s ease;
@@ -1672,8 +1554,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      white-space: nowrap;
+      gap: 6px;
     }
 
     .memo-btn-secondary {
@@ -1789,11 +1670,6 @@
       display: none !important;
     }
 
-    /* PIP 모드: 좁은 창에서 작성창 기본 높이 적절히 */
-    body.pip-mode .memo-textarea {
-      min-height: 200px;
-    }
-
     /* PIP 모드에서 닫기 버튼 → 합치기 아이콘으로 */
     body.pip-mode .memo-panel-close {
       font-size: 16px;
@@ -1854,17 +1730,6 @@
           </div>
         </div>
 
-        <!-- 메모 참고하기 (저장한 메모 불러오기) -->
-        <div style="margin-top: 16px;">
-          <div class="memo-section-label">메모 참고하기</div>
-          <div class="memo-preset-row">
-            <select class="memo-preset-select" id="memoPresetSelect">
-              <option value="">선택</option>
-            </select>
-            <button class="memo-preset-delete" id="memoPresetDelete" type="button" title="선택한 메모 삭제" disabled>✕</button>
-          </div>
-        </div>
-
         <!-- 메모 작성창 -->
         <div style="margin-top: 16px;">
           <div class="memo-section-label">메모 작성창</div>
@@ -1898,39 +1763,12 @@
 
     <!-- 푸터: 버튼 -->
     <div class="memo-panel-footer">
-      <button class="memo-btn-secondary" id="memoSaveBtn" type="button" title="현재 작성한 메모를 이름을 붙여 저장">
-        💾 임시저장
+      <button class="memo-btn-secondary" id="memoClearBtn" type="button" title="작성 내용 모두 지우기">
+        🗑️ 지우기
       </button>
       <button class="memo-btn-primary" id="memoCopyBtn" type="button">
         📋 복사하기
       </button>
-      <button class="memo-btn-secondary" id="memoClearBtn" type="button" title="작성 내용 모두 지우기">
-        🗑️ 지우기
-      </button>
-    </div>
-
-    <!-- 메모 이름 입력 모달 (prompt 대체 - Electron/PIP에서도 작동) -->
-    <div class="memo-name-modal" id="memoNameModal">
-      <div class="memo-name-box">
-        <div class="memo-name-title" id="memoNameTitle">메모 이름을 입력하세요</div>
-        <input type="text" class="memo-name-input" id="memoNameInput" placeholder="예: 배터리 교체 기본" maxlength="40" />
-        <div class="memo-name-actions">
-          <button class="memo-name-cancel" id="memoNameCancel" type="button">취소</button>
-          <button class="memo-name-confirm" id="memoNameConfirm" type="button">저장</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 메모 확인 모달 (덮어쓰기/삭제용 - 패널 안에 있어 PIP/Electron에서도 작동) -->
-    <div class="memo-name-modal" id="memoConfirmModal">
-      <div class="memo-name-box">
-        <div class="memo-name-title" id="memoConfirmTitle">확인</div>
-        <div class="memo-confirm-message" id="memoConfirmMessage"></div>
-        <div class="memo-name-actions">
-          <button class="memo-name-cancel" id="memoConfirmCancel" type="button">취소</button>
-          <button class="memo-name-confirm" id="memoConfirmOk" type="button">확인</button>
-        </div>
-      </div>
     </div>
   </aside>
 
@@ -2242,8 +2080,7 @@ GSX Ship-to ( 배송 계정 ) :
       repairProduct: 'qaid_memo_repair_product',
       repairText: 'qaid_memo_repair_text',
       escalationText: 'qaid_memo_escalation_text',
-      activeTab: 'qaid_memo_active_tab',
-      presets: 'qaid_memo_presets'  // 저장된 메모 프리셋 (이름→내용)
+      activeTab: 'qaid_memo_active_tab'
     };
 
     // 현재 탭 상태
@@ -2265,9 +2102,6 @@ GSX Ship-to ( 배송 계정 ) :
     const escalationText = document.getElementById('escalationText');
     const memoCopyBtn = document.getElementById('memoCopyBtn');
     const memoClearBtn = document.getElementById('memoClearBtn');
-    const memoSaveBtn = document.getElementById('memoSaveBtn');
-    const memoPresetSelect = document.getElementById('memoPresetSelect');
-    const memoPresetDelete = document.getElementById('memoPresetDelete');
     const memoPanelIcon = document.getElementById('memoPanelIcon');
     const memoPanelTitle = document.getElementById('memoPanelTitle');
 
@@ -2428,194 +2262,6 @@ GSX Ship-to ( 배송 계정 ) :
       // input 이벤트 수동 발생 (localStorage 저장 트리거)
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     });
-
-    // ==================== 메모 참고하기 (프리셋) ====================
-    // 자주 쓰는 메모를 이름 붙여 저장하고, 드롭박스로 불러오기 (localStorage, PC별)
-
-    // 저장된 프리셋 불러오기 (객체: { 이름: 내용 })
-    function loadPresets() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEYS.presets);
-        return raw ? JSON.parse(raw) : {};
-      } catch (e) {
-        return {};
-      }
-    }
-
-    // 프리셋 저장
-    function savePresets(presets) {
-      try {
-        localStorage.setItem(STORAGE_KEYS.presets, JSON.stringify(presets));
-      } catch (e) {
-        console.error('프리셋 저장 실패:', e);
-      }
-    }
-
-    // 드롭박스 목록 갱신
-    function refreshPresetDropdown() {
-      const presets = loadPresets();
-      const names = Object.keys(presets);
-
-      // 첫 옵션(안내) 빼고 모두 제거
-      memoPresetSelect.innerHTML = '<option value="">선택</option>';
-      names.forEach(name => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
-        memoPresetSelect.appendChild(opt);
-      });
-
-      // 선택 초기화 + 삭제버튼 비활성
-      memoPresetSelect.value = '';
-      memoPresetDelete.disabled = true;
-    }
-
-    // 현재 메모를 이름 붙여 저장 (자체 모달 사용 - prompt는 Electron/PIP에서 막힘)
-    function saveCurrentMemo() {
-      const text = repairMemoText.value;
-      if (!currentProduct || !text.trim()) {
-        showCopyFeedback('제품군 선택 후 내용을 입력해주세요', false);
-        return;
-      }
-      openNameModal();
-    }
-
-    // 이름 입력 모달 열기
-    function openNameModal() {
-      const modal = document.getElementById('memoNameModal');
-      const input = document.getElementById('memoNameInput');
-      input.value = '';
-      modal.classList.add('show');
-      // PIP 창으로 패널이 이동했을 수 있으므로, 현재 패널이 속한 document에서 포커스
-      setTimeout(() => { try { input.focus(); } catch(e){} }, 50);
-    }
-
-    // 이름 입력 모달 닫기
-    function closeNameModal() {
-      document.getElementById('memoNameModal').classList.remove('show');
-    }
-
-    // 모달에서 저장 확정
-    async function confirmSaveMemo() {
-      const input = document.getElementById('memoNameInput');
-      const trimmedName = input.value.trim();
-      if (!trimmedName) {
-        try { input.focus(); } catch(e){}
-        return;
-      }
-
-      const text = repairMemoText.value;
-      const presets = loadPresets();
-      if (presets[trimmedName]) {
-        // 이름 입력 모달을 잠시 숨기고 확인 모달 표시 (겹침 방지)
-        document.getElementById('memoNameModal').classList.remove('show');
-        const ok = await showMemoConfirm(
-          '덮어쓰기',
-          `"${trimmedName}" 이름이 이미 있습니다.<br>덮어쓸까요?`,
-          '덮어쓰기'
-        );
-        if (!ok) {
-          // 취소하면 이름 입력 모달 다시 표시
-          document.getElementById('memoNameModal').classList.add('show');
-          return;
-        }
-      }
-
-      presets[trimmedName] = text;
-      savePresets(presets);
-      refreshPresetDropdown();
-      memoPresetSelect.value = trimmedName;
-      memoPresetDelete.disabled = false;
-      closeNameModal();
-      showCopyFeedback('저장되었습니다!', true);
-    }
-
-    // 드롭박스에서 선택 → 작성창에 불러오기
-    function loadSelectedPreset() {
-      const name = memoPresetSelect.value;
-      if (!name) {
-        memoPresetDelete.disabled = true;
-        return;
-      }
-      memoPresetDelete.disabled = false;
-
-      const presets = loadPresets();
-      const content = presets[name];
-      if (content === undefined) return;
-
-      // 작성창에 불러오기 (제품군 미선택 시 작성창 보이게 처리)
-      if (!currentProduct) {
-        // 제품군이 없으면 작성창을 강제로 표시 (불러온 내용 우선)
-        repairEmptyHint.style.display = 'none';
-        repairMemoText.style.display = 'block';
-      }
-      repairMemoText.value = content;
-      // input 이벤트로 localStorage 저장 트리거
-      repairMemoText.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-
-    // 선택한 프리셋 삭제
-    async function deleteSelectedPreset() {
-      const name = memoPresetSelect.value;
-      if (!name) return;
-
-      const ok = await showMemoConfirm(
-        '메모 삭제',
-        `저장된 메모 "${name}"을(를) 삭제할까요?`,
-        '삭제'
-      );
-      if (!ok) return;
-
-      const presets = loadPresets();
-      delete presets[name];
-      savePresets(presets);
-      refreshPresetDropdown();
-      showCopyFeedback('삭제되었습니다', true);
-    }
-
-    // 패널 안 확인 모달 (덮어쓰기/삭제용 - PIP/Electron 호환)
-    // showConfirm과 달리 패널 내부에 있어 PIP 창으로 이동해도 함께 작동
-    function showMemoConfirm(title, message, confirmText) {
-      return new Promise((resolve) => {
-        const modal = document.getElementById('memoConfirmModal');
-        const titleEl = document.getElementById('memoConfirmTitle');
-        const msgEl = document.getElementById('memoConfirmMessage');
-        const okBtn = document.getElementById('memoConfirmOk');
-        const cancelBtn = document.getElementById('memoConfirmCancel');
-
-        titleEl.textContent = title || '확인';
-        msgEl.innerHTML = message || '';
-        okBtn.textContent = confirmText || '확인';
-        modal.classList.add('show');
-
-        const cleanup = () => {
-          modal.classList.remove('show');
-          okBtn.removeEventListener('click', onOk);
-          cancelBtn.removeEventListener('click', onCancel);
-        };
-        const onOk = () => { cleanup(); resolve(true); };
-        const onCancel = () => { cleanup(); resolve(false); };
-        okBtn.addEventListener('click', onOk);
-        cancelBtn.addEventListener('click', onCancel);
-      });
-    }
-
-    // 이벤트 연결
-    memoSaveBtn.addEventListener('click', saveCurrentMemo);
-    memoPresetSelect.addEventListener('change', loadSelectedPreset);
-    memoPresetDelete.addEventListener('click', deleteSelectedPreset);
-
-    // 이름 입력 모달 버튼
-    document.getElementById('memoNameConfirm').addEventListener('click', confirmSaveMemo);
-    document.getElementById('memoNameCancel').addEventListener('click', closeNameModal);
-    document.getElementById('memoNameInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); confirmSaveMemo(); }
-      if (e.key === 'Escape') closeNameModal();
-    });
-
-    // 초기 드롭박스 채우기
-    refreshPresetDropdown();
-    // ==================== 메모 참고하기 끝 ====================
 
     // 복사하기 - 현재 활성 탭의 내용을 클립보드에 복사
     async function copyMemoText() {
