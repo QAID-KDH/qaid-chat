@@ -2733,42 +2733,49 @@ GSX Ship-to ( 배송 계정 ) :
         showQrError(msg || '입장에 실패했습니다.');
       });
 
-      // 사진 전용 업로드 화면 (채팅앱과 동일한 디자인 토큰 사용)
+      // 사진 전용 업로드 화면 (로그인 화면과 동일한 카드형 디자인)
       document.body.style.margin = '0';
       document.body.innerHTML = `
-        <div style="min-height:100vh;display:flex;flex-direction:column;font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;background:#F4F6F9;color:#1A1D24;">
-          <!-- 헤더 -->
-          <div style="background:#327CDB;color:#fff;padding:20px 20px 22px;box-shadow:0 2px 12px rgba(50,124,219,0.25);">
-            <div style="display:flex;align-items:center;gap:10px;justify-content:center;">
-              <span style="font-size:22px;">📷</span>
-              <span style="font-size:18px;font-weight:700;">${center}</span>
-            </div>
-            <div style="font-size:13px;opacity:0.92;margin-top:4px;text-align:center;">사진을 찍으면 PC 채팅으로 바로 전송됩니다</div>
-          </div>
+        <div style="min-height:100vh;display:flex;flex-direction:column;font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;background:linear-gradient(160deg,#EaF1Fb 0%,#F4F6F9 100%);color:#1A1D24;padding:20px;box-sizing:border-box;">
 
-          <!-- 본문 -->
-          <div style="flex:1;display:flex;flex-direction:column;padding:24px 20px;gap:14px;">
-            <button id="qrTakePhoto" style="width:100%;padding:18px;font-size:16px;font-weight:700;font-family:inherit;color:#fff;background:#327CDB;border:none;border-radius:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 14px rgba(50,124,219,0.3);transition:transform 0.1s;">
-              <span style="font-size:20px;">📷</span> 사진 찍기
-            </button>
-            <button id="qrPickPhoto" style="width:100%;padding:18px;font-size:16px;font-weight:700;font-family:inherit;color:#327CDB;background:#fff;border:1.5px solid #E8F2FC;border-radius:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-              <span style="font-size:20px;">🖼️</span> 앨범에서 선택
-            </button>
+          <!-- 카드 -->
+          <div style="background:#fff;border-radius:24px;box-shadow:0 10px 40px rgba(50,124,219,0.12);padding:28px 24px;margin:auto 0;">
+
+            <!-- 헤더 영역 -->
+            <div style="text-align:center;margin-bottom:24px;">
+              <div style="width:64px;height:64px;border-radius:18px;background:#327CDB;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 6px 18px rgba(50,124,219,0.35);">
+                <span style="font-size:30px;">📷</span>
+              </div>
+              <div style="font-size:20px;font-weight:700;color:#1A1D24;">${center}</div>
+              <div style="font-size:13px;color:#9098A4;margin-top:6px;line-height:1.5;">사진을 찍으면<br>PC 채팅으로 바로 전송됩니다</div>
+            </div>
+
+            <!-- 버튼 2개 (로그인 화면의 역할 선택 버튼과 동일 스타일) -->
+            <div style="display:flex;gap:12px;margin-bottom:8px;">
+              <button id="qrTakePhoto" style="flex:1;padding:22px 12px;font-family:inherit;background:#fff;border:1.5px solid #E5E8EC;border-radius:16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;transition:all 0.15s;">
+                <span style="font-size:30px;">📷</span>
+                <span style="font-size:15px;font-weight:700;color:#1A1D24;">사진 찍기</span>
+              </button>
+              <button id="qrPickPhoto" style="flex:1;padding:22px 12px;font-family:inherit;background:#fff;border:1.5px solid #E5E8EC;border-radius:16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;transition:all 0.15s;">
+                <span style="font-size:30px;">🖼️</span>
+                <span style="font-size:15px;font-weight:700;color:#1A1D24;">앨범에서 선택</span>
+              </button>
+            </div>
 
             <input type="file" id="qrCameraInput" accept="image/*" capture="environment" style="display:none;" />
             <input type="file" id="qrAlbumInput" accept="image/*" style="display:none;" />
 
-            <div id="qrUploadStatus" style="font-size:14px;font-weight:600;min-height:22px;text-align:center;padding:4px;"></div>
+            <div id="qrUploadStatus" style="font-size:14px;font-weight:600;min-height:22px;text-align:center;padding:10px 0 2px;"></div>
 
             <!-- 전송 목록 -->
-            <div id="qrSentWrap" style="display:none;margin-top:4px;">
-              <div style="font-size:13px;font-weight:600;color:#4B5563;margin-bottom:10px;padding-left:4px;">전송한 사진</div>
-              <div id="qrSentList" style="display:flex;flex-direction:column;gap:8px;"></div>
+            <div id="qrSentWrap" style="display:none;border-top:1px solid #F0F2F5;margin-top:8px;padding-top:16px;">
+              <div style="font-size:13px;font-weight:700;color:#4B5563;margin-bottom:10px;">전송한 사진</div>
+              <div id="qrSentList" style="display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;"></div>
             </div>
           </div>
 
-          <!-- 하단 안내 -->
-          <div style="padding:16px 20px 28px;text-align:center;font-size:12px;color:#9098A4;">
+          <!-- 하단 -->
+          <div style="text-align:center;font-size:12px;color:#B0B6C0;padding:16px 0 8px;">
             큐에이드 채팅 · 사진 전송
           </div>
         </div>`;
@@ -2781,10 +2788,18 @@ GSX Ship-to ( 배송 계정 ) :
       const takeBtn = document.getElementById('qrTakePhoto');
       const pickBtn = document.getElementById('qrPickPhoto');
 
-      // 버튼 눌림 효과
+      // 버튼 눌림/포커스 효과 (로그인 화면 역할버튼처럼 파란 테두리)
       [takeBtn, pickBtn].forEach(btn => {
-        btn.addEventListener('touchstart', () => { btn.style.transform = 'scale(0.97)'; }, { passive: true });
-        btn.addEventListener('touchend', () => { btn.style.transform = 'scale(1)'; }, { passive: true });
+        btn.addEventListener('touchstart', () => {
+          btn.style.borderColor = '#327CDB';
+          btn.style.background = '#F4F9FE';
+          btn.style.transform = 'scale(0.97)';
+        }, { passive: true });
+        btn.addEventListener('touchend', () => {
+          btn.style.borderColor = '#E5E8EC';
+          btn.style.background = '#fff';
+          btn.style.transform = 'scale(1)';
+        }, { passive: true });
       });
 
       takeBtn.addEventListener('click', () => cameraInput.click());
