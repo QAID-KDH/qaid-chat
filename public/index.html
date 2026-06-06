@@ -1539,12 +1539,140 @@
       background: var(--surface);
     }
 
-    .memo-btn-secondary,
-    .memo-btn-primary {
-      padding: 11px 16px;
+    /* 메모 참고하기 드롭박스 */
+    .memo-preset-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .memo-preset-select {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--surface-2);
+      cursor: pointer;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235A6373' stroke-width='2'%3e%3cpath d='M6 9l6 6 6-6'/%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 16px;
+      padding-right: 32px;
+    }
+    .memo-preset-select:focus { border-color: var(--brand); }
+    .memo-preset-delete {
+      flex-shrink: 0;
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface-2);
+      color: var(--text-secondary);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .memo-preset-delete:hover:not(:disabled) {
+      background: #FEE2E2;
+      color: #EF4444;
+      border-color: #FECACA;
+    }
+    .memo-preset-delete:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* 메모 이름 입력 모달 */
+    .memo-name-modal {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .memo-name-modal.show { display: flex; }
+    .memo-name-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 22px 20px 18px;
+      width: 100%;
+      max-width: 320px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    }
+    .memo-name-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 14px;
+    }
+    .memo-name-input {
+      width: 100%;
+      padding: 11px 13px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      box-sizing: border-box;
+      outline: none;
+      margin-bottom: 16px;
+    }
+    .memo-name-input:focus { border-color: var(--brand); }
+    .memo-name-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+    .memo-name-input + .memo-name-label {
+      margin-top: 12px;
+    }
+    .memo-confirm-message {
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .memo-name-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .memo-name-cancel,
+    .memo-name-confirm {
+      flex: 1;
+      padding: 11px;
       border-radius: 10px;
       border: none;
-      font-size: 13px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .memo-name-cancel {
+      background: var(--surface-2);
+      color: var(--text-secondary);
+    }
+    .memo-name-confirm {
+      background: var(--brand);
+      color: #fff;
+    }
+    .memo-name-confirm:hover { background: var(--brand-hover); }
+
+    .memo-btn-secondary,
+    .memo-btn-primary {
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: none;
+      font-size: 12.5px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s ease;
@@ -1554,7 +1682,8 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 4px;
+      white-space: nowrap;
     }
 
     .memo-btn-secondary {
@@ -1670,6 +1799,16 @@
       display: none !important;
     }
 
+    /* PIP 모드에서 탭(수리메모/에스컬레이션) 숨김 - 메인 헤더에서만 선택 */
+    body.pip-mode .memo-tabs {
+      display: none !important;
+    }
+
+    /* PIP 모드: 좁은 창에서 작성창 기본 높이 적절히 */
+    body.pip-mode .memo-textarea {
+      min-height: 200px;
+    }
+
     /* PIP 모드에서 닫기 버튼 → 합치기 아이콘으로 */
     body.pip-mode .memo-panel-close {
       font-size: 16px;
@@ -1720,13 +1859,19 @@
     <div class="memo-panel-body">
       <!-- 수리메모 탭 콘텐츠 -->
       <div id="repairTabContent">
-        <!-- 제품군 선택 -->
+        <!-- 메모 참고하기 (제품군 → 메모 2단 선택) -->
         <div>
-          <div class="memo-section-label">제품군 선택</div>
-          <div class="memo-product-select">
-            <button class="memo-product-option" data-product="iOS" type="button">iOS</button>
-            <button class="memo-product-option" data-product="AirPods" type="button">AirPods</button>
-            <button class="memo-product-option" data-product="Mac" type="button">Mac</button>
+          <div class="memo-section-label">메모 참고하기</div>
+          <!-- 1단계: 제품군 선택 -->
+          <select class="memo-preset-select" id="memoCategorySelect" style="width:100%; margin-bottom:8px;">
+            <option value="">제품군 선택</option>
+          </select>
+          <!-- 2단계: 해당 제품군의 메모 선택 -->
+          <div class="memo-preset-row">
+            <select class="memo-preset-select" id="memoPresetSelect" disabled>
+              <option value="">메모 선택</option>
+            </select>
+            <button class="memo-preset-delete" id="memoPresetDelete" type="button" title="선택한 메모 삭제" disabled>✕</button>
           </div>
         </div>
 
@@ -1734,16 +1879,10 @@
         <div style="margin-top: 16px;">
           <div class="memo-section-label">메모 작성창</div>
           <div id="repairMemoArea">
-            <div class="memo-empty-hint" id="repairEmptyHint">
-              <div class="memo-empty-hint-icon">📋</div>
-              <div>제품군을 먼저 선택해주세요</div>
-              <div style="font-size: 11.5px; margin-top: 4px; opacity: 0.7;">선택하면 자동으로 템플릿이 입력됩니다</div>
-            </div>
             <textarea
               class="memo-textarea"
               id="repairMemoText"
-              placeholder="제품군을 선택하면 템플릿이 자동으로 입력됩니다..."
-              style="display: none;"
+              placeholder="메모를 작성하세요..."
               spellcheck="false"
             ></textarea>
           </div>
@@ -1763,12 +1902,43 @@
 
     <!-- 푸터: 버튼 -->
     <div class="memo-panel-footer">
-      <button class="memo-btn-secondary" id="memoClearBtn" type="button" title="작성 내용 모두 지우기">
-        🗑️ 지우기
+      <button class="memo-btn-secondary" id="memoSaveBtn" type="button" title="현재 작성한 메모를 이름을 붙여 저장">
+        💾 임시저장
       </button>
       <button class="memo-btn-primary" id="memoCopyBtn" type="button">
         📋 복사하기
       </button>
+      <button class="memo-btn-secondary" id="memoClearBtn" type="button" title="작성 내용 모두 지우기">
+        🗑️ 지우기
+      </button>
+    </div>
+
+    <!-- 메모 이름 입력 모달 (prompt 대체 - Electron/PIP에서도 작동) -->
+    <div class="memo-name-modal" id="memoNameModal">
+      <div class="memo-name-box">
+        <div class="memo-name-title" id="memoNameTitle">메모 저장</div>
+        <label class="memo-name-label">제품군</label>
+        <input type="text" class="memo-name-input" id="memoCategoryInput" placeholder="예: iPhone, AirPods, Mac" maxlength="30" list="memoCategoryList" />
+        <datalist id="memoCategoryList"></datalist>
+        <label class="memo-name-label">메모 이름</label>
+        <input type="text" class="memo-name-input" id="memoNameInput" placeholder="예: 배터리 소모 빠름" maxlength="40" />
+        <div class="memo-name-actions">
+          <button class="memo-name-cancel" id="memoNameCancel" type="button">취소</button>
+          <button class="memo-name-confirm" id="memoNameConfirm" type="button">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 메모 확인 모달 (덮어쓰기/삭제용 - 패널 안에 있어 PIP/Electron에서도 작동) -->
+    <div class="memo-name-modal" id="memoConfirmModal">
+      <div class="memo-name-box">
+        <div class="memo-name-title" id="memoConfirmTitle">확인</div>
+        <div class="memo-confirm-message" id="memoConfirmMessage"></div>
+        <div class="memo-name-actions">
+          <button class="memo-name-confirm" id="memoConfirmOk" type="button">확인</button>
+          <button class="memo-name-cancel" id="memoConfirmCancel" type="button">취소</button>
+        </div>
+      </div>
     </div>
   </aside>
 
@@ -2028,36 +2198,6 @@
   · 수리에 필요한 부품 : 
   · 금액 : 
   · 수리 유형 : 
-  · 예상 수리 완료 시간 : `,
-
-      AirPods: `- 고객 보고 증상 : 
-- 문제해결 및 진단 내역
-  1. 
-- 외관 상태
-  · 충전케이스 : 
-  · 왼쪽 : 
-  · 오른쪽 : 
-- 서비스 제안 내용
-  · 수리에 적용되는 보증 : 
-  · 확인된 증상 : 
-  · 수리에 필요한 부품 : 
-  · 금액 : 
-  · 수리 유형 : 
-  · 예상 수리 완료 시간 : `,
-
-      Mac: `- 고객 보고 증상 : 
-- 문제해결 및 진단 내역
-  1. 
-- 외관 상태
-  · 디스플레이 : 
-  · 탑케이스 : 
-  · 바텀케이스 : 
-- 서비스 제안 내용
-  · 수리에 적용되는 보증 : 
-  · 확인된 증상 : 
-  · 수리에 필요한 부품 : 
-  · 금액 : 
-  · 수리 유형 : 
   · 예상 수리 완료 시간 : `
     };
 
@@ -2077,15 +2217,17 @@ GSX Ship-to ( 배송 계정 ) :
 
     // localStorage 키
     const STORAGE_KEYS = {
-      repairProduct: 'qaid_memo_repair_product',
       repairText: 'qaid_memo_repair_text',
       escalationText: 'qaid_memo_escalation_text',
-      activeTab: 'qaid_memo_active_tab'
+      activeTab: 'qaid_memo_active_tab',
+      presets: 'qaid_memo_presets'  // 저장된 메모 프리셋 (이름→내용)
     };
 
     // 현재 탭 상태
     let currentMemoTab = 'repair'; // 'repair' 또는 'escalation'
-    let currentProduct = null; // 'iOS', 'AirPods', 'Mac' 또는 null
+    let currentProduct = 'iOS'; // 제품군 선택 제거 → iPhone(iOS) 템플릿으로 고정
+    // 현재 불러온 메모 (수정 후 재저장 시 모달에 미리 채우기 위함)
+    let loadedMemo = { category: '', name: '' };
 
     // DOM 참조
     const memoPanel = document.getElementById('memoPanel');
@@ -2094,14 +2236,16 @@ GSX Ship-to ( 배송 계정 ) :
     const openEscalationBtn = document.getElementById('openEscalationBtn');
     const memoPanelCloseBtn = document.getElementById('memoPanelCloseBtn');
     const memoTabs = document.querySelectorAll('.memo-tab');
-    const memoProductOptions = document.querySelectorAll('.memo-product-option');
     const repairTabContent = document.getElementById('repairTabContent');
     const escalationTabContent = document.getElementById('escalationTabContent');
-    const repairEmptyHint = document.getElementById('repairEmptyHint');
     const repairMemoText = document.getElementById('repairMemoText');
     const escalationText = document.getElementById('escalationText');
     const memoCopyBtn = document.getElementById('memoCopyBtn');
     const memoClearBtn = document.getElementById('memoClearBtn');
+    const memoSaveBtn = document.getElementById('memoSaveBtn');
+    const memoPresetSelect = document.getElementById('memoPresetSelect');
+    const memoPresetDelete = document.getElementById('memoPresetDelete');
+    const memoCategorySelect = document.getElementById('memoCategorySelect');
     const memoPanelIcon = document.getElementById('memoPanelIcon');
     const memoPanelTitle = document.getElementById('memoPanelTitle');
 
@@ -2151,45 +2295,6 @@ GSX Ship-to ( 배송 계정 ) :
         memoPanelTitle.textContent = '에스컬레이션';
       }
       updateMemoButtonState();
-    }
-
-    // 제품군 선택
-    async function selectProduct(product) {
-      // 이미 선택된 동일 제품군 클릭 → 무시
-      if (currentProduct === product) return;
-
-      // 작성 중인 내용이 있고 + 다른 제품군 선택 시 확인
-      const currentText = repairMemoText.value.trim();
-      const isCurrentTemplateUntouched = currentProduct && currentText === REPAIR_TEMPLATES[currentProduct].trim();
-
-      if (currentText && !isCurrentTemplateUntouched && currentProduct !== null) {
-        const confirmed = await showConfirm({
-          title: '제품군 변경',
-          message: `현재 작성 중인 내용이 사라집니다.<br>${product} 템플릿으로 변경하시겠습니까?`,
-          confirmText: '변경',
-          cancelText: '취소'
-        });
-        if (!confirmed) return;
-      }
-
-      // 제품군 변경 적용
-      currentProduct = product;
-      localStorage.setItem(STORAGE_KEYS.repairProduct, product);
-
-      // 버튼 활성화 표시
-      memoProductOptions.forEach(opt => {
-        opt.classList.toggle('selected', opt.dataset.product === product);
-      });
-
-      // 템플릿 자동 입력
-      repairMemoText.value = REPAIR_TEMPLATES[product];
-      localStorage.setItem(STORAGE_KEYS.repairText, repairMemoText.value);
-
-      // UI 전환: 안내 메시지 숨기고 textarea 표시
-      repairEmptyHint.style.display = 'none';
-      repairMemoText.style.display = '';
-      // 포커스
-      setTimeout(() => repairMemoText.focus(), 100);
     }
 
     // 텍스트 영역 변경 시 저장
@@ -2263,13 +2368,330 @@ GSX Ship-to ( 배송 계정 ) :
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
+    // ==================== 메모 참고하기 (프리셋, 제품군별 2단) ====================
+    // 구조: { 제품군: { 메모이름: 내용 } }  (localStorage, PC별)
+
+    function loadPresets() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.presets);
+        const data = raw ? JSON.parse(raw) : {};
+        // 구버전({이름:내용}) → 신버전 마이그레이션: '기타' 제품군으로 이동
+        const looksOld = Object.values(data).some(v => typeof v === 'string');
+        if (looksOld) {
+          const migrated = { '기타': {} };
+          Object.keys(data).forEach(k => {
+            if (typeof data[k] === 'string') migrated['기타'][k] = data[k];
+            else migrated[k] = data[k];
+          });
+          return migrated;
+        }
+        return data;
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function savePresets(presets) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.presets, JSON.stringify(presets));
+      } catch (e) {
+        console.error('프리셋 저장 실패:', e);
+      }
+    }
+
+    // 1단계: 제품군 드롭박스 갱신
+    function refreshCategoryDropdown() {
+      const presets = loadPresets();
+      const categories = Object.keys(presets)
+        .filter(c => Object.keys(presets[c]).length > 0)
+        .sort((a, b) => a.localeCompare(b, 'ko'));  // 가나다순 정렬
+
+      memoCategorySelect.innerHTML = '<option value="">제품군 선택</option>';
+      categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        memoCategorySelect.appendChild(opt);
+      });
+      memoCategorySelect.value = '';
+
+      // 저장 모달의 제품군 자동완성 목록도 갱신 (가나다순)
+      const datalist = document.getElementById('memoCategoryList');
+      if (datalist) {
+        datalist.innerHTML = '';
+        Object.keys(presets).sort((a, b) => a.localeCompare(b, 'ko')).forEach(cat => {
+          const opt = document.createElement('option');
+          opt.value = cat;
+          datalist.appendChild(opt);
+        });
+      }
+
+      // 2단계 드롭박스 초기화
+      memoPresetSelect.innerHTML = '<option value="">메모 선택</option>';
+      memoPresetSelect.disabled = true;
+      memoPresetDelete.disabled = true;
+    }
+
+    // 2단계: 선택한 제품군의 메모 드롭박스 갱신
+    function refreshPresetDropdown() {
+      const category = memoCategorySelect.value;
+      memoPresetSelect.innerHTML = '<option value="">메모 선택</option>';
+      memoPresetDelete.disabled = true;
+
+      if (!category) {
+        memoPresetSelect.disabled = true;
+        return;
+      }
+
+      const presets = loadPresets();
+      const memos = presets[category] || {};
+      // 메모 이름 가나다순 정렬
+      Object.keys(memos).sort((a, b) => a.localeCompare(b, 'ko')).forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        memoPresetSelect.appendChild(opt);
+      });
+      memoPresetSelect.disabled = false;
+      memoPresetSelect.value = '';
+    }
+
+    // 현재 메모를 저장 (모달 열기)
+    function saveCurrentMemo() {
+      const text = repairMemoText.value;
+      if (!text.trim()) {
+        showCopyFeedback('내용을 입력해주세요', false);
+        return;
+      }
+      openNameModal();
+    }
+
+    function openNameModal() {
+      const modal = document.getElementById('memoNameModal');
+      const catInput = document.getElementById('memoCategoryInput');
+      const nameInput = document.getElementById('memoNameInput');
+
+      // 불러온 메모가 있으면 제품군+이름 미리 채움 (수정/덮어쓰기 편의)
+      if (loadedMemo.category && loadedMemo.name) {
+        catInput.value = loadedMemo.category;
+        nameInput.value = loadedMemo.name;
+      } else {
+        // 새 메모: 제품군은 드롭박스 선택값이 있으면 채우고, 이름은 비움
+        catInput.value = memoCategorySelect.value || '';
+        nameInput.value = '';
+      }
+
+      modal.classList.add('show');
+      setTimeout(() => { try { catInput.focus(); } catch(e){} }, 50);
+    }
+
+    function closeNameModal() {
+      document.getElementById('memoNameModal').classList.remove('show');
+    }
+
+    // 모달에서 저장 확정 (제품군 + 메모 이름)
+    async function confirmSaveMemo() {
+      const catInput = document.getElementById('memoCategoryInput');
+      const nameInput = document.getElementById('memoNameInput');
+      const category = catInput.value.trim();
+      const name = nameInput.value.trim();
+
+      if (!category) { try { catInput.focus(); } catch(e){} return; }
+      if (!name) { try { nameInput.focus(); } catch(e){} return; }
+
+      const text = repairMemoText.value;
+      const presets = loadPresets();
+      if (!presets[category]) presets[category] = {};
+
+      // 신규인지 덮어쓰기인지 판단
+      const isOverwrite = !!presets[category][name];
+
+      // 같은 제품군에 같은 이름이 있으면 덮어쓰기 확인
+      if (isOverwrite) {
+        document.getElementById('memoNameModal').classList.remove('show');
+        const ok = await showMemoConfirm(
+          '덮어쓰기',
+          `"${category}"에 "${name}" 메모가 이미 있습니다.<br>덮어쓸까요?`,
+          '덮어쓰기'
+        );
+        if (!ok) {
+          document.getElementById('memoNameModal').classList.add('show');
+          return;
+        }
+      }
+
+      presets[category][name] = text;
+      savePresets(presets);
+      refreshCategoryDropdown();
+      // 방금 저장한 제품군/메모 자동 선택
+      memoCategorySelect.value = category;
+      refreshPresetDropdown();
+      memoPresetSelect.value = name;
+      memoPresetDelete.disabled = false;
+      // 방금 저장한 메모를 "불러온 메모"로 기록 (이어서 또 저장 시 편의)
+      loadedMemo = { category: category, name: name };
+      closeNameModal();
+
+      // 저장 결과 알림 모달 (신규/덮어쓰기 구분)
+      if (isOverwrite) {
+        await showMemoAlert(
+          '수정 완료',
+          `"${category}" 제품군의<br>"${name}" 메모가 덮어쓰기되었습니다.`
+        );
+      } else {
+        await showMemoAlert(
+          '저장 완료',
+          `"${category}" 제품군에<br>"${name}" 메모가 새로 저장되었습니다.`
+        );
+      }
+    }
+
+    // 제품군 선택 시 → 메모 드롭박스 갱신
+    function onCategoryChange() {
+      refreshPresetDropdown();
+      // 제품군을 "제품군 선택"(빈 값)으로 되돌리면 기본 iPhone 템플릿으로 복귀
+      if (!memoCategorySelect.value) {
+        repairMemoText.value = REPAIR_TEMPLATES.iOS;
+        repairMemoText.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+
+    // 메모 선택 → 작성창에 불러오기
+    function loadSelectedPreset() {
+      const category = memoCategorySelect.value;
+      const name = memoPresetSelect.value;
+
+      // 메모를 "메모 선택"(빈 값)으로 되돌리면 기본 iPhone 템플릿으로 복귀
+      if (!name) {
+        memoPresetDelete.disabled = true;
+        loadedMemo = { category: '', name: '' };  // 불러온 메모 기록 초기화
+        repairMemoText.value = REPAIR_TEMPLATES.iOS;
+        repairMemoText.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
+      if (!category) {
+        memoPresetDelete.disabled = true;
+        return;
+      }
+      memoPresetDelete.disabled = false;
+
+      const presets = loadPresets();
+      const content = (presets[category] || {})[name];
+      if (content === undefined) return;
+
+      // 불러온 메모 기록 (재저장 시 모달에 미리 채우기 위함)
+      loadedMemo = { category: category, name: name };
+      repairMemoText.value = content;
+      repairMemoText.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    // 선택한 메모 삭제
+    async function deleteSelectedPreset() {
+      const category = memoCategorySelect.value;
+      const name = memoPresetSelect.value;
+      if (!category || !name) return;
+
+      const ok = await showMemoConfirm(
+        '메모 삭제',
+        `"${category}"의 "${name}" 메모를 삭제할까요?`,
+        '삭제'
+      );
+      if (!ok) return;
+
+      const presets = loadPresets();
+      if (presets[category]) {
+        delete presets[category][name];
+        // 제품군에 메모가 하나도 없으면 제품군도 제거
+        if (Object.keys(presets[category]).length === 0) delete presets[category];
+      }
+      savePresets(presets);
+      refreshCategoryDropdown();
+      showCopyFeedback('삭제되었습니다', true);
+    }
+
+    // 패널 안 확인 모달 (덮어쓰기/삭제용 - PIP/Electron 호환)
+    // showConfirm과 달리 패널 내부에 있어 PIP 창으로 이동해도 함께 작동
+    function showMemoConfirm(title, message, confirmText) {
+      return new Promise((resolve) => {
+        const modal = document.getElementById('memoConfirmModal');
+        const titleEl = document.getElementById('memoConfirmTitle');
+        const msgEl = document.getElementById('memoConfirmMessage');
+        const okBtn = document.getElementById('memoConfirmOk');
+        const cancelBtn = document.getElementById('memoConfirmCancel');
+
+        titleEl.textContent = title || '확인';
+        msgEl.innerHTML = message || '';
+        okBtn.textContent = confirmText || '확인';
+        cancelBtn.style.display = '';  // 취소 버튼 항상 표시 (알림 모달이 숨겼을 수 있어 복원)
+        modal.classList.add('show');
+
+        const cleanup = () => {
+          modal.classList.remove('show');
+          okBtn.removeEventListener('click', onOk);
+          cancelBtn.removeEventListener('click', onCancel);
+        };
+        const onOk = () => { cleanup(); resolve(true); };
+        const onCancel = () => { cleanup(); resolve(false); };
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+      });
+    }
+
+    // 알림 모달 (확인 버튼만 - 저장 완료 등 결과 안내용)
+    function showMemoAlert(title, message) {
+      return new Promise((resolve) => {
+        const modal = document.getElementById('memoConfirmModal');
+        const titleEl = document.getElementById('memoConfirmTitle');
+        const msgEl = document.getElementById('memoConfirmMessage');
+        const okBtn = document.getElementById('memoConfirmOk');
+        const cancelBtn = document.getElementById('memoConfirmCancel');
+
+        titleEl.textContent = title || '알림';
+        msgEl.innerHTML = message || '';
+        okBtn.textContent = '확인';
+        cancelBtn.style.display = 'none';  // 취소 버튼 숨김 (알림이라 확인만)
+        modal.classList.add('show');
+
+        const cleanup = () => {
+          modal.classList.remove('show');
+          cancelBtn.style.display = '';  // 다음 사용을 위해 복원
+          okBtn.removeEventListener('click', onOk);
+        };
+        const onOk = () => { cleanup(); resolve(true); };
+        okBtn.addEventListener('click', onOk);
+      });
+    }
+
+    // 이벤트 연결
+    memoSaveBtn.addEventListener('click', saveCurrentMemo);
+    memoCategorySelect.addEventListener('change', onCategoryChange);
+    memoPresetSelect.addEventListener('change', loadSelectedPreset);
+    memoPresetDelete.addEventListener('click', deleteSelectedPreset);
+
+    // 이름 입력 모달 버튼
+    document.getElementById('memoNameConfirm').addEventListener('click', confirmSaveMemo);
+    document.getElementById('memoNameCancel').addEventListener('click', closeNameModal);
+    // 제품군 입력칸 Enter → 메모 이름칸으로 이동
+    document.getElementById('memoCategoryInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('memoNameInput').focus(); }
+      if (e.key === 'Escape') closeNameModal();
+    });
+    document.getElementById('memoNameInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); confirmSaveMemo(); }
+      if (e.key === 'Escape') closeNameModal();
+    });
+
+    // 초기 드롭박스 채우기 (제품군 목록)
+    refreshCategoryDropdown();
+    // ==================== 메모 참고하기 끝 ====================
+
     // 복사하기 - 현재 활성 탭의 내용을 클립보드에 복사
     async function copyMemoText() {
       let textToCopy = '';
       if (currentMemoTab === 'repair') {
         textToCopy = repairMemoText.value;
-        if (!textToCopy.trim() || !currentProduct) {
-          showCopyFeedback('제품군을 선택하고 내용을 입력해주세요', false);
+        if (!textToCopy.trim()) {
+          showCopyFeedback('내용이 비어있습니다', false);
           return;
         }
       } else {
@@ -2328,17 +2750,10 @@ GSX Ship-to ( 배송 계정 ) :
       if (!confirmed) return;
 
       if (currentMemoTab === 'repair') {
-        repairMemoText.value = '';
-        currentProduct = null;
-        localStorage.removeItem(STORAGE_KEYS.repairText);
-        localStorage.removeItem(STORAGE_KEYS.repairProduct);
-
-        // 제품군 선택 해제
-        memoProductOptions.forEach(opt => opt.classList.remove('selected'));
-
-        // UI 원상복귀
-        repairEmptyHint.style.display = '';
-        repairMemoText.style.display = 'none';
+        // 작성창을 비우고 기본 iPhone 템플릿 다시 입력
+        repairMemoText.value = REPAIR_TEMPLATES.iOS;
+        localStorage.setItem(STORAGE_KEYS.repairText, repairMemoText.value);
+        setTimeout(() => repairMemoText.focus(), 100);
       } else {
         escalationText.value = '';
         localStorage.removeItem(STORAGE_KEYS.escalationText);
@@ -2347,66 +2762,26 @@ GSX Ship-to ( 배송 계정 ) :
 
     // localStorage에서 복원
     function restoreMemoState() {
-      // ===== localStorage 마이그레이션 =====
-      // 1) 'AirPod' → 'AirPods' 키 변경 (이전 버전 호환)
-      const oldProduct = localStorage.getItem(STORAGE_KEYS.repairProduct);
-      if (oldProduct === 'AirPod') {
-        localStorage.setItem(STORAGE_KEYS.repairProduct, 'AirPods');
-      }
-      // 2) 이전 에스컬레이션 템플릿이 그대로 저장되어 있으면 새 템플릿으로 교체
-      //    (사용자가 작성한 내용이 거의 없을 때만 자동 교체)
+      // 에스컬레이션 이전 템플릿 마이그레이션 (빈 옛 템플릿이면 새 템플릿으로 교체)
       const oldEscalationMarkers = ['문제 범주:', '주제:', '- VMI(마이크로 검사)', '- 송장번호:'];
       const savedEsc = localStorage.getItem(STORAGE_KEYS.escalationText);
       if (savedEsc) {
         const hasOldMarkers = oldEscalationMarkers.some(m => savedEsc.includes(m));
-        // 모든 콜론 뒤가 빈 칸인지 확인 (작성 안 된 빈 템플릿인지 판단)
         const isEmptyTemplate = savedEsc.split('\n').every(line => {
           const idx = line.indexOf(':');
           if (idx === -1) return true;
           return line.slice(idx + 1).trim() === '';
         });
         if (hasOldMarkers && isEmptyTemplate) {
-          // 빈 옛 템플릿 → 새 템플릿으로 교체
           localStorage.setItem(STORAGE_KEYS.escalationText, ESCALATION_TEMPLATE);
         }
       }
 
-      // 3) 수리메모 빈 옛 템플릿이면 새 템플릿으로 교체
-      //    옛 템플릿 마커: "- 문제해결 및 진단 내역 : " (콜론 있음) 또는
-      //                    "- 서비스 제안 내용 : " (콜론 있음, 하위 항목 없음)
-      const savedRepair = localStorage.getItem(STORAGE_KEYS.repairText);
-      const savedProductForMig = localStorage.getItem(STORAGE_KEYS.repairProduct);
-      if (savedRepair && savedProductForMig && REPAIR_TEMPLATES[savedProductForMig]) {
-        const hasOldRepairMarkers =
-          savedRepair.includes('- 문제해결 및 진단 내역 :') ||
-          (savedRepair.includes('- 서비스 제안 내용 :') && !savedRepair.includes('· 수리에 적용되는 보증'));
-
-        // 모든 콜론 뒤가 빈 칸인지 (실제 내용이 없는 빈 템플릿인지) 확인
-        const isEmptyRepair = savedRepair.split('\n').every(line => {
-          const idx = line.indexOf(':');
-          if (idx === -1) return true;
-          return line.slice(idx + 1).trim() === '';
-        });
-
-        if (hasOldRepairMarkers && isEmptyRepair) {
-          localStorage.setItem(STORAGE_KEYS.repairText, REPAIR_TEMPLATES[savedProductForMig]);
-        }
-      }
-
-      // 수리메모 복원
-      const savedProduct = localStorage.getItem(STORAGE_KEYS.repairProduct);
+      // 수리메모 복원: 저장된 내용이 있으면 복원, 없으면 iPhone(iOS) 템플릿 기본 입력
       const savedRepairText = localStorage.getItem(STORAGE_KEYS.repairText);
-
-      if (savedProduct && REPAIR_TEMPLATES[savedProduct]) {
-        currentProduct = savedProduct;
-        memoProductOptions.forEach(opt => {
-          opt.classList.toggle('selected', opt.dataset.product === savedProduct);
-        });
-        repairEmptyHint.style.display = 'none';
-        repairMemoText.style.display = '';
-        // 저장된 텍스트가 있으면 복원, 없으면 템플릿 입력
-        repairMemoText.value = savedRepairText !== null ? savedRepairText : REPAIR_TEMPLATES[savedProduct];
-      }
+      repairMemoText.value = (savedRepairText !== null && savedRepairText.trim() !== '')
+        ? savedRepairText
+        : REPAIR_TEMPLATES.iOS;
 
       // 에스컬레이션 복원 (텍스트가 없으면 템플릿으로 초기화)
       const savedEscalation = localStorage.getItem(STORAGE_KEYS.escalationText);
@@ -2629,10 +3004,6 @@ GSX Ship-to ( 배송 계정 ) :
 
     memoTabs.forEach(tab => {
       tab.addEventListener('click', () => switchMemoTab(tab.dataset.tab));
-    });
-
-    memoProductOptions.forEach(opt => {
-      opt.addEventListener('click', () => selectProduct(opt.dataset.product));
     });
 
     memoCopyBtn.addEventListener('click', copyMemoText);
