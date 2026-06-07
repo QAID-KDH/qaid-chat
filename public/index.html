@@ -2221,7 +2221,8 @@ GSX Ship-to ( 배송 계정 ) :
       escalationText: 'qaid_memo_escalation_text',
       activeTab: 'qaid_memo_active_tab',
       presets: 'qaid_memo_presets',  // 저장된 메모 프리셋 (이름→내용)
-      textareaHeight: 'qaid_memo_textarea_height'  // 메모 작성창 높이 (px)
+      textareaHeight: 'qaid_memo_textarea_height',  // 수리메모 작성창 높이 (px)
+      escalationHeight: 'qaid_memo_escalation_height'  // 에스컬레이션 작성창 높이 (px)
     };
 
     // 현재 탭 상태
@@ -2694,29 +2695,30 @@ GSX Ship-to ( 배송 계정 ) :
     // 초기 드롭박스 채우기 (제품군 목록)
     refreshCategoryDropdown();
 
-    // ===== 메모 작성창 높이 저장/복원 =====
+    // ===== 메모 작성창 높이 저장/복원 (수리메모 + 에스컬레이션 각각) =====
     // 사용자가 ⊿ 핸들로 조절한 높이를 기억했다가 다음에 복원
-    function restoreTextareaHeight() {
-      const saved = parseInt(localStorage.getItem(STORAGE_KEYS.textareaHeight), 10);
+    function setupTextareaHeight(textarea, storageKey) {
+      if (!textarea) return;
+      // 복원
+      const saved = parseInt(localStorage.getItem(storageKey), 10);
       if (saved && saved >= 100) {
-        repairMemoText.style.height = saved + 'px';
+        textarea.style.height = saved + 'px';
+      }
+      // 높이 변화 감지 → 저장 (디바운스)
+      if (window.ResizeObserver) {
+        let saveTimer = null;
+        const ro = new ResizeObserver(() => {
+          if (saveTimer) clearTimeout(saveTimer);
+          saveTimer = setTimeout(() => {
+            const h = textarea.offsetHeight;
+            if (h >= 100) localStorage.setItem(storageKey, h);
+          }, 300);
+        });
+        ro.observe(textarea);
       }
     }
-    // 높이 변화 감지 → 저장 (ResizeObserver로 드래그 종료 후 높이 기록)
-    if (window.ResizeObserver) {
-      let saveTimer = null;
-      const ro = new ResizeObserver(() => {
-        // 너무 자주 저장하지 않도록 디바운스
-        if (saveTimer) clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => {
-          const h = repairMemoText.offsetHeight;
-          if (h >= 100) localStorage.setItem(STORAGE_KEYS.textareaHeight, h);
-        }, 300);
-      });
-      ro.observe(repairMemoText);
-    }
-    // 초기 복원
-    restoreTextareaHeight();
+    setupTextareaHeight(repairMemoText, STORAGE_KEYS.textareaHeight);
+    setupTextareaHeight(escalationText, STORAGE_KEYS.escalationHeight);
     // ==================== 메모 참고하기 끝 ====================
 
     // 복사하기 - 현재 활성 탭의 내용을 클립보드에 복사
