@@ -199,6 +199,65 @@ setInterval(() => {
   }
 }, 10 * 60 * 1000);
 
+// ==================== 관리자 현황 페이지 ====================
+// 센터별 실시간 사용 현황(접속자/오늘 메시지/마지막 활동)을 관리자 비밀번호로 보호하여 제공
+// 관리자 비밀번호는 환경변수 ADMIN_PASSWORD (없으면 기본값 사용 - 운영 시 반드시 설정 권장)
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'qaid-admin';
+
+// 관리자 인증
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body;
+  if (String(password) === String(ADMIN_PASSWORD)) {
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ success: false, message: '비밀번호가 올바르지 않습니다.' });
+  }
+});
+
+// 센터별 현황 데이터 (관리자 비밀번호 필요)
+app.post('/api/admin/status', (req, res) => {
+  const { password } = req.body;
+  if (String(password) !== String(ADMIN_PASSWORD)) {
+    return res.status(401).json({ success: false, message: '인증 실패' });
+  }
+
+  const today = todayKST();
+  const now = Date.now();
+
+  // 실제 센터만 (예비 채널 제외하고 싶으면 필터 조정)
+  const list = CENTERS.map(center => {
+    const data = centerData[center];
+    // 접속자 수 (QR 사용자 제외)
+    let online = 0;
+    let todayCount = 0;
+    let lastActivity = null;
+    if (data) {
+      online = Array.from(data.users.values()).filter(u => !u.isQrUser).length;
+      // 통계 날짜가 오늘이 아니면 0으로 간주
+      todayCount = (data.statDate === today) ? data.todayCount : 0;
+      lastActivity = data.lastActivity;
+    }
+
+    // 상태 판정
+    // 활발(active): 지금 접속자 있음 + 오늘 메시지 있음
+    // 보통(idle): 오늘 활동은 있었으나 지금 접속 없음 (또는 접속만)
+    // 미사용(inactive): 오늘 활동 없음 + 접속 없음
+    let status;
+    if (online > 0 && todayCount > 0) status = 'active';
+    else if (todayCount > 0 || online > 0) status = 'idle';
+    else status = 'inactive';
+
+    return { center, online, todayCount, lastActivity, status };
+  });
+
+  res.json({
+    success: true,
+    serverTime: new Date().toISOString(),
+    today: today,
+    centers: list
+  });
+});
+
 const MAX_HISTORY = 100;
 
 // 센터별 데이터 저장소
@@ -209,10 +268,31 @@ function getCenterData(centerName) {
   if (!centerData[centerName]) {
     centerData[centerName] = {
       messageHistory: [],
-      users: new Map() // socketId -> { name, role }
+      users: new Map(), // socketId -> { name, role }
+      todayCount: 0,        // 오늘 보낸 메시지 수 (텍스트+사진+파일)
+      lastActivity: null,   // 마지막 활동 시각 (ISO 문자열)
+      statDate: null        // 통계 기준 날짜 (KST, 'YYYY-MM-DD') - 날짜 바뀌면 todayCount 리셋
     };
   }
   return centerData[centerName];
+}
+
+// 현재 한국 날짜 문자열 (YYYY-MM-DD)
+function todayKST() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+}
+
+// 센터 활동 기록 (메시지 보낼 때마다 호출)
+function recordActivity(centerName) {
+  const data = getCenterData(centerName);
+  const today = todayKST();
+  // 날짜가 바뀌었으면 오늘 카운트 리셋
+  if (data.statDate !== today) {
+    data.statDate = today;
+    data.todayCount = 0;
+  }
+  data.todayCount++;
+  data.lastActivity = new Date().toISOString();
 }
 
 function addToHistory(centerName, message) {
@@ -334,6 +414,7 @@ io.on('connection', (socket) => {
       };
 
       addToHistory(center, fileMessage);
+      recordActivity(center);  // 활동 통계 기록
       io.to(center).emit('message', fileMessage);
       console.log(`[${center}] ${user.name} ${payload.type === 'image' ? '이미지' : '파일'} 전송: ${fileMessage.fileName}`);
       return;
@@ -368,6 +449,7 @@ io.on('connection', (socket) => {
     };
 
     addToHistory(center, message);
+    recordActivity(center);  // 활동 통계 기록
     // 같은 센터 사람들에게만 전송
     io.to(center).emit('message', message);
   });
