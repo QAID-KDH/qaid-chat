@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Qaid 채팅 — 관리자 현황</title>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+  <style>
+    :root {
+      --brand: #327CDB;
+      --brand-dark: #2766B8;
+      --bg: #F4F6F9;
+      --surface: #FFFFFF;
+      --text: #1A1D24;
+      --text-sub: #5A6373;
+      --border: #E5E8EC;
+      --active: #2BB673;
+      --active-bg: #E8F7F0;
+      --idle: #F5A623;
+      --idle-bg: #FEF6E7;
+      --inactive: #C2C8D0;
+      --inactive-bg: #F2F4F6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Pretendard Variable', 'Pretendard', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ===== 로그인 화면 ===== */
+    .login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-card {
+      background: var(--surface);
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(50,124,219,0.12);
+      padding: 36px 30px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+    }
+    .login-icon {
+      width: 60px; height: 60px;
+      border-radius: 16px;
+      background: var(--brand);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 28px;
+      box-shadow: 0 6px 18px rgba(50,124,219,0.35);
+    }
+    .login-title { font-size: 19px; font-weight: 700; }
+    .login-sub { font-size: 13px; color: var(--text-sub); margin-top: 6px; margin-bottom: 22px; }
+    .login-input {
+      width: 100%;
+      padding: 13px 15px;
+      border: 1.5px solid var(--border);
+      border-radius: 11px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      margin-bottom: 12px;
+    }
+    .login-input:focus { border-color: var(--brand); }
+    .login-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 11px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .login-btn:hover { background: var(--brand-dark); }
+    .login-error { color: #E0533D; font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+    /* ===== 대시보드 ===== */
+    .dash { display: none; max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+    .dash-header {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+      margin-bottom: 20px;
+    }
+    .dash-title { font-size: 22px; font-weight: 800; }
+    .dash-title span { color: var(--brand); }
+    .dash-meta { font-size: 13px; color: var(--text-sub); }
+    .dash-refresh {
+      font-size: 13px; color: var(--text-sub);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .refresh-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--active);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    /* 요약 바 */
+    .summary {
+      display: flex; gap: 12px; flex-wrap: wrap;
+      margin-bottom: 22px;
+    }
+    .summary-item {
+      flex: 1; min-width: 140px;
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+    }
+    .summary-num { font-size: 28px; font-weight: 800; line-height: 1; }
+    .summary-label { font-size: 13px; color: var(--text-sub); margin-top: 7px; }
+    .summary-item.active .summary-num { color: var(--active); }
+    .summary-item.idle .summary-num { color: var(--idle); }
+    .summary-item.inactive .summary-num { color: var(--inactive); }
+
+    /* 센터 카드 그리드 */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .card {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 16px 16px 14px;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--inactive);
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
+    .card.active { border-left-color: var(--active); }
+    .card.idle { border-left-color: var(--idle); }
+    .card.inactive { border-left-color: var(--inactive); }
+
+    .card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .card-name { font-size: 16px; font-weight: 700; }
+    .badge {
+      font-size: 11px; font-weight: 700;
+      padding: 4px 9px; border-radius: 20px;
+    }
+    .badge.active { background: var(--active-bg); color: var(--active); }
+    .badge.idle { background: var(--idle-bg); color: var(--idle); }
+    .badge.inactive { background: var(--inactive-bg); color: var(--text-sub); }
+
+    .card-stats { display: flex; gap: 16px; }
+    .stat { flex: 1; }
+    .stat-num { font-size: 20px; font-weight: 800; }
+    .stat-label { font-size: 11.5px; color: var(--text-sub); margin-top: 2px; }
+    .card-last { font-size: 11.5px; color: var(--text-sub); margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+    .logout-btn {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-sub); padding: 8px 14px; border-radius: 9px;
+      font-size: 13px; font-family: inherit; cursor: pointer;
+    }
+    .logout-btn:hover { background: #EEF0F3; }
+  </style>
+</head>
+<body>
+  <!-- 로그인 -->
+  <div class="login-wrap" id="loginWrap">
+    <div class="login-card">
+      <div class="login-icon">📊</div>
+      <div class="login-title">관리자 현황</div>
+      <div class="login-sub">Qaid 채팅 센터별 사용 현황</div>
+      <input type="password" class="login-input" id="pwInput" placeholder="관리자 비밀번호" autocomplete="current-password" />
+      <button class="login-btn" id="loginBtn">접속</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- 대시보드 -->
+  <div class="dash" id="dash">
+    <div class="dash-header">
+      <div>
+        <div class="dash-title">Qaid <span>센터 현황</span></div>
+        <div class="dash-meta" id="dashMeta">불러오는 중…</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <div class="dash-refresh"><span class="refresh-dot"></span> 자동 갱신 중</div>
+        <button class="logout-btn" id="logoutBtn">나가기</button>
+      </div>
+    </div>
+
+    <div class="summary" id="summary"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <script>
+    let adminPw = '';
+    let timer = null;
+
+    const loginWrap = document.getElementById('loginWrap');
+    const dash = document.getElementById('dash');
+    const pwInput = document.getElementById('pwInput');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginError = document.getElementById('loginError');
+
+    // 로그인
+    async function doLogin() {
+      const pw = pwInput.value.trim();
+      if (!pw) { pwInput.focus(); return; }
+      loginError.textContent = '';
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw })
+        });
+        if (res.ok) {
+          adminPw = pw;
+          loginWrap.style.display = 'none';
+          dash.style.display = 'block';
+          loadStatus();
+          timer = setInterval(loadStatus, 5000); // 5초마다 갱신
+        } else {
+          loginError.textContent = '비밀번호가 올바르지 않습니다.';
+        }
+      } catch (e) {
+        loginError.textContent = '서버 연결에 실패했습니다.';
+      }
+    }
+    loginBtn.addEventListener('click', doLogin);
+    pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+    // 나가기
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      if (timer) clearInterval(timer);
+      adminPw = '';
+      pwInput.value = '';
+      dash.style.display = 'none';
+      loginWrap.style.display = 'flex';
+    });
+
+    // 마지막 활동 시각 표시 ("방금 전", "5분 전" 등)
+    function timeAgo(iso) {
+      if (!iso) return '오늘 활동 없음';
+      const diff = Date.now() - new Date(iso).getTime();
+      const min = Math.floor(diff / 60000);
+      if (min < 1) return '방금 전';
+      if (min < 60) return min + '분 전';
+      const hr = Math.floor(min / 60);
+      if (hr < 24) return hr + '시간 전';
+      return Math.floor(hr / 24) + '일 전';
+    }
+
+    const STATUS_LABEL = { active: '활발', idle: '보통', inactive: '미사용' };
+
+    // 현황 불러오기
+    async function loadStatus() {
+      try {
+        const res = await fetch('/api/admin/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: adminPw })
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        render(data);
+      } catch (e) { /* 네트워크 일시 오류는 무시하고 다음 갱신 대기 */ }
+    }
+
+    function render(data) {
+      const centers = data.centers || [];
+      // 요약
+      const counts = { active: 0, idle: 0, inactive: 0 };
+      let totalOnline = 0;
+      centers.forEach(c => { counts[c.status]++; totalOnline += c.online; });
+
+      document.getElementById('summary').innerHTML = `
+        <div class="summary-item"><div class="summary-num">${totalOnline}</div><div class="summary-label">현재 접속자</div></div>
+        <div class="summary-item active"><div class="summary-num">${counts.active}</div><div class="summary-label">활발</div></div>
+        <div class="summary-item idle"><div class="summary-num">${counts.idle}</div><div class="summary-label">보통</div></div>
+        <div class="summary-item inactive"><div class="summary-num">${counts.inactive}</div><div class="summary-label">미사용</div></div>
+      `;
+
+      // 정렬: 활발 → 보통 → 미사용, 그 안에서는 접속자 많은 순
+      const order = { active: 0, idle: 1, inactive: 2 };
+      centers.sort((a, b) => {
+        if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
+        return b.online - a.online;
+      });
+
+      document.getElementById('grid').innerHTML = centers.map(c => `
+        <div class="card ${c.status}">
+          <div class="card-top">
+            <div class="card-name">${c.center}</div>
+            <span class="badge ${c.status}">${STATUS_LABEL[c.status]}</span>
+          </div>
+          <div class="card-stats">
+            <div class="stat"><div class="stat-num">${c.online}</div><div class="stat-label">접속 중</div></div>
+            <div class="stat"><div class="stat-num">${c.todayCount}</div><div class="stat-label">오늘 메시지</div></div>
+          </div>
+          <div class="card-last">최근 활동: ${timeAgo(c.lastActivity)}</div>
+        </div>
+      `).join('');
+
+      // 갱신 시각
+      const t = new Date(data.serverTime).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('dashMeta').textContent = `${data.today} · 마지막 갱신 ${t} · 총 ${centers.length}개 센터`;
+    }
+  </script>
+</body>
+</html>
