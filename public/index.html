@@ -2256,6 +2256,9 @@ GSX Ship-to ( 배송 계정 ) :
       memoPanel.classList.add('active');
       memoBackdrop.classList.add('active');
       switchMemoTab(tab);
+      // 패널을 열 때마다 저장소에서 메모 목록을 다시 읽어옴 (현재 선택은 유지)
+      // → 앱에서 옆에 띄운 창에서 저장한 메모가 메인 창을 다시 열 때 반영되도록
+      restoreMemoDropdowns(memoCategorySelect.value, memoPresetSelect.value);
       // 헤더 버튼 active 상태 갱신
       updateMemoButtonState();
     }
@@ -2694,6 +2697,15 @@ GSX Ship-to ( 배송 계정 ) :
 
     // 초기 드롭박스 채우기 (제품군 목록)
     refreshCategoryDropdown();
+
+    // 다른 창(앱의 '옆에 띄운' 창 포함)에서 메모 프리셋이 바뀌면
+    // 이 창의 드롭박스도 자동으로 다시 읽어옴 (현재 선택은 유지)
+    // ※ storage 이벤트는 "변경을 일으킨 창"이 아니라 "그 외 다른 창"에서 발생함 → 메인 창이 받음
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_KEYS.presets) {
+        restoreMemoDropdowns(memoCategorySelect.value, memoPresetSelect.value);
+      }
+    });
 
     // ===== 메모 작성창 높이 저장/복원 (수리메모 + 에스컬레이션 각각) =====
     // 사용자가 ⊿ 핸들로 조절한 높이를 기억했다가 다음에 복원
