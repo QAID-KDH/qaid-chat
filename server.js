@@ -271,10 +271,7 @@ function getCenterData(centerName) {
       users: new Map(), // socketId -> { name, role }
       todayCount: 0,        // 오늘 보낸 메시지 수 (텍스트+사진+파일)
       lastActivity: null,   // 마지막 활동 시각 (ISO 문자열)
-      statDate: null,       // 통계 기준 날짜 (KST, 'YYYY-MM-DD') - 날짜 바뀌면 todayCount 리셋
-      seqCounter: 0,        // 메시지 순번(읽음 계산용, 센터별 1씩 증가)
-      readState: new Map(), // identity('이름|역할') -> 그 사람이 읽은 마지막 seq
-      roster: new Set()     // 오늘 이 센터에 들어온 적 있는 사람(접속 끊겨도 유지) - 읽음 계산 대상
+      statDate: null        // 통계 기준 날짜 (KST, 'YYYY-MM-DD') - 날짜 바뀌면 todayCount 리셋
     };
   }
   return centerData[centerName];
@@ -300,11 +297,6 @@ function recordActivity(centerName) {
 
 function addToHistory(centerName, message) {
   const data = getCenterData(centerName);
-  // 시스템(입장/퇴장) 메시지를 제외한 실제 대화 메시지에 순번 부여 (읽음 계산용)
-  if (message.seq === undefined && message.type !== 'system') {
-    data.seqCounter = (data.seqCounter || 0) + 1;
-    message.seq = data.seqCounter;
-  }
   data.messageHistory.push(message);
   // 100개 초과 시 가장 오래된 "텍스트/시스템" 메시지부터 제거 (이미지/파일은 보호)
   if (data.messageHistory.length > MAX_HISTORY) {
@@ -317,25 +309,9 @@ function addToHistory(centerName, message) {
   }
 }
 
-// ==================== 공감표시(반응) & 읽음표시 ====================
+// ==================== 공감표시(반응) ====================
 // 허용 이모지 (이 목록 외에는 무시 — 보안/일관성)
 const ALLOWED_REACTIONS = ['👍', '✅', '❤️', '😂', '👀'];
-
-// "오늘 이 센터에 들어온 사람들"의 읽은 위치를 센터 전체에 전파
-// 접속을 끊어도 명단(roster)에 남으므로, 창을 닫아도 그 사람이 다시 보기 전까지
-// '안 읽음'으로 계산됨 (카카오톡처럼 1이 유지됨)
-function emitReads(centerName) {
-  const data = centerData[centerName];
-  if (!data) return;
-  const list = [];
-  for (const id of data.roster) {
-    list.push({
-      id,
-      seq: data.readState.has(id) ? data.readState.get(id) : -1
-    });
-  }
-  io.to(centerName).emit('reads', list);
-}
 
 // 소켓별 센터 정보 저장
 const socketCenter = new Map(); // socketId -> centerName
@@ -387,26 +363,12 @@ io.on('connection', (socket) => {
     const isQrUser = !!qrToken && authed;
     data.users.set(socket.id, { name, role, isQrUser });
 
-    // QR이 아닌 일반 사용자는 "오늘 들어온 사람 명단"에 등록 (읽음 계산 대상)
-    if (!isQrUser) {
-      const idJoin = name + '|' + role;
-      // 처음 들어온 사람은 "지금까지의 메시지는 읽은 것"으로 간주
-      // → 입장 전 과거 메시지에 안읽음 숫자가 새로 뜨지 않도록
-      if (!data.readState.has(idJoin)) {
-        data.readState.set(idJoin, data.seqCounter || 0);
-      }
-      data.roster.add(idJoin);
-    }
-
     // 입장한 사용자에게 해당 센터의 메시지 히스토리만 전송
     socket.emit('history', data.messageHistory);
 
     // 같은 센터 사람들에게만 접속자 목록 전송 (QR 사용자는 제외)
     const visibleUsers = Array.from(data.users.values()).filter(u => !u.isQrUser);
     io.to(center).emit('users', visibleUsers);
-
-    // 읽음 현황 전파 (새 접속자 반영)
-    emitReads(center);
 
     // QR 사용자가 아닐 때만 입장 알림 표시
     if (!isQrUser) {
@@ -597,23 +559,6 @@ io.on('connection', (socket) => {
     io.to(center).emit('reaction', { messageId, reactions: msg.reactions || {} });
   });
 
-  // 읽음 처리: 클라이언트가 "여기까지 봤다"는 seq를 보냄 (누적)
-  socket.on('read', (seq) => {
-    const center = socketCenter.get(socket.id);
-    if (!center) return;
-    const data = getCenterData(center);
-    const user = data.users.get(socket.id);
-    if (!user || user.isQrUser) return;
-    const s = parseInt(seq, 10);
-    if (isNaN(s)) return;
-    const id = user.name + '|' + user.role;
-    const prev = data.readState.has(id) ? data.readState.get(id) : -1;
-    if (s > prev) {
-      data.readState.set(id, s);
-      emitReads(center); // 읽음 현황 갱신 전파
-    }
-  });
-
   // 타이핑 표시
   socket.on('typing', (isTyping) => {
     const center = socketCenter.get(socket.id);
@@ -646,8 +591,6 @@ io.on('connection', (socket) => {
         // 접속자 목록 갱신 (QR 사용자 제외)
         const visibleUsers = Array.from(data.users.values()).filter(u => !u.isQrUser);
         io.to(center).emit('users', visibleUsers);
-        // 읽음 현황 전파 (나간 사람 반영 → 안 읽은 숫자 재계산)
-        emitReads(center);
         console.log(`[${center}] ${user.name} 퇴장${user.isQrUser ? ' (QR)' : ''}`);
       }
       socketCenter.delete(socket.id);
@@ -742,9 +685,6 @@ function clearAllChats() {
     });
 
     data.messageHistory = kept;
-    // 읽음 관련 상태도 초기화 (오늘 명단/읽은 위치 비움)
-    if (data.roster) data.roster.clear();
-    if (data.readState) data.readState.clear();
     clearedCenters++;
 
     // 현재 접속 중인 사용자들에게 갱신된 기록 전송 (파일만 남은 상태)
