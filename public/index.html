@@ -2419,7 +2419,7 @@ GSX Ship-to ( 배송 계정 ) :
 
       memoCategorySelect.innerHTML = '<option value="">제품군 선택</option>';
       categories.forEach(cat => {
-        const opt = document.createElement('option');
+        const opt = memoDoc().createElement('option');
         opt.value = cat;
         opt.textContent = cat;
         memoCategorySelect.appendChild(opt);
@@ -2431,7 +2431,7 @@ GSX Ship-to ( 배송 계정 ) :
       if (datalist) {
         datalist.innerHTML = '';
         Object.keys(presets).sort((a, b) => a.localeCompare(b, 'ko')).forEach(cat => {
-          const opt = document.createElement('option');
+          const opt = memoDoc().createElement('option');
           opt.value = cat;
           datalist.appendChild(opt);
         });
@@ -2458,7 +2458,7 @@ GSX Ship-to ( 배송 계정 ) :
       const memos = presets[category] || {};
       // 메모 이름 가나다순 정렬
       Object.keys(memos).sort((a, b) => a.localeCompare(b, 'ko')).forEach(name => {
-        const opt = document.createElement('option');
+        const opt = memoDoc().createElement('option');
         opt.value = name;
         opt.textContent = name;
         memoPresetSelect.appendChild(opt);
@@ -2930,8 +2930,15 @@ GSX Ship-to ( 배송 계정 ) :
           }
         });
 
+        // 패널을 PIP 창으로 옮기기 전에 현재 선택 상태 기억
+        const prevCat = memoCategorySelect.value;
+        const prevMemo = memoPresetSelect.value;
+
         pipWindow.document.body.classList.add('pip-mode');
         pipWindow.document.body.appendChild(memoPanel);
+
+        // 패널이 PIP 창(다른 document)으로 이동했으므로 드롭박스를 그 document 기준으로 다시 생성
+        restoreMemoDropdowns(prevCat, prevMemo);
 
         memoBackdrop.classList.remove('active');
         openMemoBtn.classList.remove('active');
@@ -2968,16 +2975,40 @@ GSX Ship-to ( 배송 계정 ) :
       }
     }
 
+    // PIP 진입/복귀로 메모 패널이 다른 창(document)으로 이동했을 때,
+    // 현재 선택을 유지하면서 드롭박스를 그 document 기준으로 다시 만든다.
+    // (옆에 띄우기 상태에서 임시저장한 메모가 메인 창 드롭박스에 안 보이던 문제 해결)
+    function restoreMemoDropdowns(cat, memo) {
+      refreshCategoryDropdown();
+      if (cat) {
+        memoCategorySelect.value = cat;
+        if (memoCategorySelect.value === cat) {
+          refreshPresetDropdown();
+          if (memo) {
+            memoPresetSelect.value = memo;
+            if (memoPresetSelect.value === memo) memoPresetDelete.disabled = false;
+          }
+        }
+      }
+    }
+
     // 브라우저 PIP 창에서 원래 사이드바로 복귀 (Electron에서는 사용 안 함)
     function returnFromPip() {
       if (!memoPanel) return;
       // PIP 모드면 (Electron 자체 창) 그대로 둠
       if (isInPipMode) return;
 
+      // 이동 전, 현재 선택 상태를 기억 (PIP에서 저장/선택한 값 유지)
+      const prevCat = memoCategorySelect.value;
+      const prevMemo = memoPresetSelect.value;
+
       document.body.appendChild(memoPanel);
       document.body.classList.remove('pip-mode');
       memoPanel.classList.remove('active');
       pipWindow = null;
+
+      // 패널이 메인 창(다른 document)으로 돌아왔으므로 드롭박스를 메인 document 기준으로 다시 생성
+      restoreMemoDropdowns(prevCat, prevMemo);
     }
 
     // Electron PIP 창이 닫혔을 때 알림 받기 (메인 창에서만)
