@@ -1814,6 +1814,101 @@
       font-size: 16px;
     }
 
+    /* ===== 공감표시(반응) ===== */
+    .msg-tools {
+      position: relative;
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+    }
+    .message:hover .msg-tools { opacity: 1; pointer-events: auto; }
+    @media (hover: none) {
+      .msg-tools { opacity: 0.55; pointer-events: auto; }
+    }
+    .message.deleted .msg-tools,
+    .message.deleted .msg-reactions { display: none !important; }
+
+    .msg-react-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px; height: 24px;
+      padding: 0;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      box-shadow: var(--shadow-sm);
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .msg-react-btn:hover { background: var(--surface-2); transform: scale(1.08); }
+
+    .emoji-picker {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0;
+      display: none;
+      gap: 2px;
+      padding: 5px 7px;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 22px;
+      box-shadow: var(--shadow-md);
+      z-index: 40;
+    }
+    .message.own .emoji-picker { left: auto; right: 0; }
+    .emoji-picker.show { display: flex; }
+    .emoji-picker button {
+      border: none;
+      background: transparent;
+      font-size: 21px;
+      line-height: 1;
+      padding: 4px 5px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.1s ease, background 0.1s ease;
+    }
+    .emoji-picker button:hover { background: var(--surface-2); transform: scale(1.25); }
+
+    .msg-reactions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 5px;
+    }
+    .reaction-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 9px;
+      font-size: 12.5px;
+      font-weight: 600;
+      border-radius: 13px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      cursor: pointer;
+      line-height: 1.6;
+    }
+    .reaction-chip.mine {
+      background: var(--surface);
+      border-color: var(--brand);
+      color: var(--brand);
+    }
+
+    /* ===== 읽음표시(안 읽은 숫자, 카카오톡식) ===== */
+    .read-count {
+      color: #F5A623;
+      font-weight: 800;
+      font-size: 11.5px;
+      margin-left: 2px;
+    }
+
   </style>
 </head>
 <body>
@@ -2116,6 +2211,12 @@
     let myName = '';
     let myRole = '';
     let myCenter = '';
+
+    // ===== 공감표시 & 읽음표시용 상태 =====
+    const REACTION_EMOJIS = ['👍', '✅', '❤️', '😂', '👀'];
+    let latestReads = [];      // [{id, seq}] 현재 접속자별 읽은 위치
+    let lastSentReadSeq = -1;  // 내가 마지막으로 서버에 보낸 읽음 seq
+    let maxRenderedSeq = -1;   // 화면에 그려진 가장 최신 메시지 seq
     let myPassword = '';
     let selectedRole = '';
     let typingTimer = null;
@@ -3476,6 +3577,7 @@ GSX Ship-to ( 배송 계정 ) :
       socket.on('history', (history) => {
         history.forEach(msg => renderMessage(msg));
         scrollToBottom();
+        markReadIfVisible(); // 들어오자마자 보이는 메시지는 읽음 처리
         // 수리실 입장 시: 아직 확인 안 된 "음성 알림이 포함된" 응대실 메시지가 있으면 음성 반복 시작
         // withVoice가 true인 메시지만 알림 대상
         if (myRole === 'repair') {
@@ -3495,6 +3597,7 @@ GSX Ship-to ( 배송 계정 ) :
       socket.on('message', (msg) => {
         renderMessage(msg);
         scrollToBottom();
+        markReadIfVisible(); // 보고 있는 중이면 새 메시지도 즉시 읽음 처리
 
         // ===== 시스템 알림 (모든 메시지에 적용) =====
         // 본인 메시지가 아니고, 채팅 타입이고, 삭제되지 않은 메시지만
@@ -3608,10 +3711,30 @@ GSX Ship-to ( 배송 계정 ) :
           if (deleteBtn) deleteBtn.remove();
           const mediaDeleteBtn = messageDiv.querySelector('.media-delete-btn');
           if (mediaDeleteBtn) mediaDeleteBtn.remove();
+          // 반응/도구/이모지창/안읽음숫자 제거
+          const reactionsEl = messageDiv.querySelector('.msg-reactions');
+          if (reactionsEl) reactionsEl.remove();
+          const toolsEl = messageDiv.querySelector('.msg-tools');
+          if (toolsEl) toolsEl.remove();
+          const readCount = messageDiv.querySelector('.read-count');
+          if (readCount) readCount.remove();
+          messageDiv.removeAttribute('data-seq'); // 읽음 계산 대상에서 제외
         }
       });
 
       socket.on('users', (users) => updateUserList(users));
+
+      // 공감표시(반응) 갱신 수신
+      socket.on('reaction', ({ messageId, reactions }) => {
+        const div = document.querySelector(`.message[data-message-id="${messageId}"]`);
+        if (div) renderReactionChips(div, reactions);
+      });
+
+      // 읽음 현황 수신 → 안 읽은 숫자 다시 계산
+      socket.on('reads', (list) => {
+        latestReads = Array.isArray(list) ? list : [];
+        recomputeAllReadBadges();
+      });
 
       socket.on('typing', ({ name, role, isTyping }) => {
         const indicator = document.getElementById('typingIndicator');
@@ -3749,6 +3872,7 @@ GSX Ship-to ( 배송 계정 ) :
           if (bubbleEl) bubbleEl.appendChild(delBtn);
         }
 
+        decorateContentMessage(div, msg);
         messagesEl.appendChild(div);
         return;
       } else {
@@ -3843,8 +3967,152 @@ GSX Ship-to ( 배송 계정 ) :
           });
         }
       }
+      decorateContentMessage(div, msg);
       messagesEl.appendChild(div);
     }
+
+    // ==================== 공감표시(반응) & 읽음표시 ====================
+    function senderIdOf(msg) {
+      return (msg.name || '') + '|' + (msg.role || '');
+    }
+
+    // 콘텐츠 메시지(텍스트/사진/파일, 삭제 안 됨)에 반응 버튼·칩·읽음숫자를 붙임
+    function decorateContentMessage(div, msg) {
+      if (!msg || msg.type === 'system' || msg.deleted || !msg.id) return;
+      // 읽음 계산용 데이터 부착
+      if (msg.seq != null) {
+        div.dataset.seq = msg.seq;
+        div.dataset.sender = senderIdOf(msg);
+        if (msg.seq > maxRenderedSeq) maxRenderedSeq = msg.seq;
+      }
+      renderReactionChips(div, msg.reactions);   // 기존 반응 표시
+      addReactionControls(div);                  // 반응 추가 버튼 + 이모지 선택창
+      updateReadBadge(div);                      // 안 읽은 숫자
+    }
+
+    // 반응 추가 버튼(🙂)과 이모지 선택 팝오버 생성
+    function addReactionControls(div) {
+      const messageId = div.dataset.messageId;
+      if (!messageId) return;
+
+      const tools = document.createElement('div');
+      tools.className = 'msg-tools';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'msg-react-btn';
+      btn.title = '공감 표시';
+      btn.textContent = '🙂';
+      tools.appendChild(btn);
+
+      const picker = document.createElement('div');
+      picker.className = 'emoji-picker';
+      REACTION_EMOJIS.forEach(e => {
+        const eb = document.createElement('button');
+        eb.type = 'button';
+        eb.textContent = e;
+        eb.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          socket.emit('react', { messageId, emoji: e });
+          picker.classList.remove('show');
+        });
+        picker.appendChild(eb);
+      });
+      tools.appendChild(picker);
+
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        document.querySelectorAll('.emoji-picker.show').forEach(p => { if (p !== picker) p.classList.remove('show'); });
+        picker.classList.toggle('show');
+      });
+
+      div.appendChild(tools);
+    }
+
+    // 반응 칩(이모지+숫자) 다시 그리기
+    function renderReactionChips(div, reactions) {
+      reactions = reactions || {};
+      let wrap = div.querySelector('.msg-reactions');
+      const emojis = REACTION_EMOJIS.filter(e => reactions[e] && reactions[e].length > 0);
+      if (emojis.length === 0) { if (wrap) wrap.remove(); return; }
+      if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.className = 'msg-reactions';
+        // 도구모음(반응 버튼)보다 위에 오도록 삽입
+        const tools = div.querySelector('.msg-tools');
+        if (tools) div.insertBefore(wrap, tools);
+        else div.appendChild(wrap);
+      }
+      wrap.innerHTML = '';
+      const messageId = div.dataset.messageId;
+      emojis.forEach(e => {
+        const people = reactions[e];
+        const mine = people.some(p => p.name === myName && p.role === myRole);
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'reaction-chip' + (mine ? ' mine' : '');
+        chip.innerHTML = '<span>' + e + '</span><span>' + people.length + '</span>';
+        chip.title = people.map(p => escapeHtml(p.name)).join(', ');
+        chip.addEventListener('click', () => socket.emit('react', { messageId, emoji: e }));
+        wrap.appendChild(chip);
+      });
+    }
+
+    // 특정 메시지의 "안 읽은 사람 수" 계산 (보낸 사람·이미 읽은 사람 제외)
+    function computeUnread(seq, senderId) {
+      if (seq == null) return 0;
+      let n = 0;
+      for (const r of latestReads) {
+        if (r.id === senderId) continue;
+        const rseq = (r.seq == null) ? -1 : r.seq;
+        if (rseq < seq) n++;
+      }
+      return n;
+    }
+
+    // 한 메시지의 안 읽은 숫자 배지 갱신
+    function updateReadBadge(div) {
+      const seq = div.dataset.seq ? parseInt(div.dataset.seq, 10) : null;
+      if (seq == null) return;
+      const meta = div.querySelector('.message-meta');
+      if (!meta) return;
+      const n = computeUnread(seq, div.dataset.sender || '');
+      let badge = meta.querySelector('.read-count');
+      if (n > 0) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'read-count';
+          meta.appendChild(badge);
+        }
+        badge.textContent = n;
+        badge.title = '안 읽은 사람 ' + n + '명';
+      } else if (badge) {
+        badge.remove();
+      }
+    }
+
+    // 화면의 모든 메시지 안 읽은 숫자 다시 계산
+    function recomputeAllReadBadges() {
+      document.querySelectorAll('.message[data-seq]').forEach(updateReadBadge);
+    }
+
+    // 채팅 화면을 실제로 보고 있을 때 "여기까지 읽음"을 서버에 전송
+    function markReadIfVisible() {
+      if (!socket || !socket.connected) return;
+      if (myRole !== 'repair' && myRole !== 'service') return; // 로그인(입장) 상태에서만
+      if (document.visibilityState !== 'visible') return;
+      if (maxRenderedSeq > lastSentReadSeq) {
+        lastSentReadSeq = maxRenderedSeq;
+        socket.emit('read', maxRenderedSeq);
+      }
+    }
+
+    // 다른 곳을 클릭하면 열려있는 이모지 선택창 닫기
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.emoji-picker.show').forEach(p => p.classList.remove('show'));
+    });
+    // 탭이 다시 보이거나 창이 포커스되면 읽음 처리
+    document.addEventListener('visibilitychange', markReadIfVisible);
+    window.addEventListener('focus', markReadIfVisible);
 
     function scrollToBottom() {
       const messagesEl = document.getElementById('messages');
