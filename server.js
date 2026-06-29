@@ -273,7 +273,8 @@ function getCenterData(centerName) {
       lastActivity: null,   // 마지막 활동 시각 (ISO 문자열)
       statDate: null,       // 통계 기준 날짜 (KST, 'YYYY-MM-DD') - 날짜 바뀌면 todayCount 리셋
       seqCounter: 0,        // 메시지 순번(읽음 계산용, 센터별 1씩 증가)
-      readState: new Map()  // identity('이름|역할') -> 그 사람이 읽은 마지막 seq
+      readState: new Map(), // identity('이름|역할') -> 그 사람이 읽은 마지막 seq
+      roster: new Set()     // 오늘 이 센터에 들어온 적 있는 사람(접속 끊겨도 유지) - 읽음 계산 대상
     };
   }
   return centerData[centerName];
@@ -320,15 +321,14 @@ function addToHistory(centerName, message) {
 // 허용 이모지 (이 목록 외에는 무시 — 보안/일관성)
 const ALLOWED_REACTIONS = ['👍', '✅', '❤️', '😂', '👀'];
 
-// 현재 접속자별 "읽은 마지막 seq"를 센터 전체에 전파
-// 클라이언트는 이 정보로 각 메시지의 "안 읽은 사람 수"를 계산함
+// "오늘 이 센터에 들어온 사람들"의 읽은 위치를 센터 전체에 전파
+// 접속을 끊어도 명단(roster)에 남으므로, 창을 닫아도 그 사람이 다시 보기 전까지
+// '안 읽음'으로 계산됨 (카카오톡처럼 1이 유지됨)
 function emitReads(centerName) {
   const data = centerData[centerName];
   if (!data) return;
   const list = [];
-  for (const u of data.users.values()) {
-    if (u.isQrUser) continue; // QR 사용자는 읽음 계산에서 제외
-    const id = u.name + '|' + u.role;
+  for (const id of data.roster) {
     list.push({
       id,
       seq: data.readState.has(id) ? data.readState.get(id) : -1
@@ -386,6 +386,17 @@ io.on('connection', (socket) => {
     // QR로 들어온 사진 전송 사용자인지 표시 (접속자 목록/입장알림에서 제외)
     const isQrUser = !!qrToken && authed;
     data.users.set(socket.id, { name, role, isQrUser });
+
+    // QR이 아닌 일반 사용자는 "오늘 들어온 사람 명단"에 등록 (읽음 계산 대상)
+    if (!isQrUser) {
+      const idJoin = name + '|' + role;
+      // 처음 들어온 사람은 "지금까지의 메시지는 읽은 것"으로 간주
+      // → 입장 전 과거 메시지에 안읽음 숫자가 새로 뜨지 않도록
+      if (!data.readState.has(idJoin)) {
+        data.readState.set(idJoin, data.seqCounter || 0);
+      }
+      data.roster.add(idJoin);
+    }
 
     // 입장한 사용자에게 해당 센터의 메시지 히스토리만 전송
     socket.emit('history', data.messageHistory);
@@ -731,6 +742,9 @@ function clearAllChats() {
     });
 
     data.messageHistory = kept;
+    // 읽음 관련 상태도 초기화 (오늘 명단/읽은 위치 비움)
+    if (data.roster) data.roster.clear();
+    if (data.readState) data.readState.clear();
     clearedCenters++;
 
     // 현재 접속 중인 사용자들에게 갱신된 기록 전송 (파일만 남은 상태)
