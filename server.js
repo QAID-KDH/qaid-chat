@@ -271,7 +271,9 @@ function getCenterData(centerName) {
       users: new Map(), // socketId -> { name, role }
       todayCount: 0,        // 오늘 보낸 메시지 수 (텍스트+사진+파일)
       lastActivity: null,   // 마지막 활동 시각 (ISO 문자열)
-      statDate: null        // 통계 기준 날짜 (KST, 'YYYY-MM-DD') - 날짜 바뀌면 todayCount 리셋
+      statDate: null,       // 통계 기준 날짜 (KST, 'YYYY-MM-DD') - 날짜 바뀌면 todayCount 리셋
+      seqCounter: 0,        // 메시지 순번(읽음 계산용, 센터별 1씩 증가)
+      readState: new Map()  // identity('이름|역할') -> 그 사람이 읽은 마지막 seq
     };
   }
   return centerData[centerName];
@@ -297,6 +299,11 @@ function recordActivity(centerName) {
 
 function addToHistory(centerName, message) {
   const data = getCenterData(centerName);
+  // 시스템(입장/퇴장) 메시지를 제외한 실제 대화 메시지에 순번 부여 (읽음 계산용)
+  if (message.seq === undefined && message.type !== 'system') {
+    data.seqCounter = (data.seqCounter || 0) + 1;
+    message.seq = data.seqCounter;
+  }
   data.messageHistory.push(message);
   // 100개 초과 시 가장 오래된 "텍스트/시스템" 메시지부터 제거 (이미지/파일은 보호)
   if (data.messageHistory.length > MAX_HISTORY) {
@@ -307,6 +314,27 @@ function addToHistory(centerName, message) {
       data.messageHistory.shift(); // 전부 파일이면 맨 앞 제거 (예외적)
     }
   }
+}
+
+// ==================== 공감표시(반응) & 읽음표시 ====================
+// 허용 이모지 (이 목록 외에는 무시 — 보안/일관성)
+const ALLOWED_REACTIONS = ['👍', '✅', '❤️', '😂', '👀'];
+
+// 현재 접속자별 "읽은 마지막 seq"를 센터 전체에 전파
+// 클라이언트는 이 정보로 각 메시지의 "안 읽은 사람 수"를 계산함
+function emitReads(centerName) {
+  const data = centerData[centerName];
+  if (!data) return;
+  const list = [];
+  for (const u of data.users.values()) {
+    if (u.isQrUser) continue; // QR 사용자는 읽음 계산에서 제외
+    const id = u.name + '|' + u.role;
+    list.push({
+      id,
+      seq: data.readState.has(id) ? data.readState.get(id) : -1
+    });
+  }
+  io.to(centerName).emit('reads', list);
 }
 
 // 소켓별 센터 정보 저장
@@ -365,6 +393,9 @@ io.on('connection', (socket) => {
     // 같은 센터 사람들에게만 접속자 목록 전송 (QR 사용자는 제외)
     const visibleUsers = Array.from(data.users.values()).filter(u => !u.isQrUser);
     io.to(center).emit('users', visibleUsers);
+
+    // 읽음 현황 전파 (새 접속자 반영)
+    emitReads(center);
 
     // QR 사용자가 아닐 때만 입장 알림 표시
     if (!isQrUser) {
@@ -525,6 +556,53 @@ io.on('connection', (socket) => {
     });
   });
 
+  // 공감표시(반응) 추가/취소 (토글)
+  socket.on('react', (payload) => {
+    const center = socketCenter.get(socket.id);
+    if (!center) return;
+    const data = getCenterData(center);
+    const user = data.users.get(socket.id);
+    if (!user) return;
+    const messageId = payload && payload.messageId;
+    const emoji = payload && payload.emoji;
+    if (!messageId || !ALLOWED_REACTIONS.includes(emoji)) return;
+
+    const msg = data.messageHistory.find(m => m.id === messageId);
+    if (!msg || msg.deleted) return;
+    if (msg.type !== 'chat' && msg.type !== 'image' && msg.type !== 'file') return;
+
+    if (!msg.reactions) msg.reactions = {};
+    if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+    const arr = msg.reactions[emoji];
+    const idx = arr.findIndex(r => r.name === user.name && r.role === user.role);
+    if (idx >= 0) {
+      arr.splice(idx, 1); // 이미 누른 사람이면 취소
+      if (arr.length === 0) delete msg.reactions[emoji];
+    } else {
+      arr.push({ name: user.name, role: user.role }); // 새 반응 추가
+    }
+
+    // 같은 센터에 갱신된 반응 전체 전파
+    io.to(center).emit('reaction', { messageId, reactions: msg.reactions || {} });
+  });
+
+  // 읽음 처리: 클라이언트가 "여기까지 봤다"는 seq를 보냄 (누적)
+  socket.on('read', (seq) => {
+    const center = socketCenter.get(socket.id);
+    if (!center) return;
+    const data = getCenterData(center);
+    const user = data.users.get(socket.id);
+    if (!user || user.isQrUser) return;
+    const s = parseInt(seq, 10);
+    if (isNaN(s)) return;
+    const id = user.name + '|' + user.role;
+    const prev = data.readState.has(id) ? data.readState.get(id) : -1;
+    if (s > prev) {
+      data.readState.set(id, s);
+      emitReads(center); // 읽음 현황 갱신 전파
+    }
+  });
+
   // 타이핑 표시
   socket.on('typing', (isTyping) => {
     const center = socketCenter.get(socket.id);
@@ -557,6 +635,8 @@ io.on('connection', (socket) => {
         // 접속자 목록 갱신 (QR 사용자 제외)
         const visibleUsers = Array.from(data.users.values()).filter(u => !u.isQrUser);
         io.to(center).emit('users', visibleUsers);
+        // 읽음 현황 전파 (나간 사람 반영 → 안 읽은 숫자 재계산)
+        emitReads(center);
         console.log(`[${center}] ${user.name} 퇴장${user.isQrUser ? ' (QR)' : ''}`);
       }
       socketCenter.delete(socket.id);
